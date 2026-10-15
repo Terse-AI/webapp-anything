@@ -173,6 +173,11 @@ try {
   };
   Module.locateFile = (path) => data.base + data.flavour + "/" + path;
   const canvas = document.getElementById("canvas");
+  // Wine's SDL backend asks for real fullscreen on the next click. Keep the program inside the page
+  // (the toolbar's Full screen button covers that): Emscripten skips fullscreen when the canvas lacks the API.
+  for (const api of ["requestFullscreen", "webkitRequestFullscreen"]) {
+    Object.defineProperty(canvas, api, { value: undefined, configurable: true });
+  }
   let shown = false;
   let ticker;
   const reveal = () => {
@@ -180,7 +185,7 @@ try {
     shown = true;
     clearInterval(ticker);
     WAA.ready();
-    canvas.focus();
+    canvas.focus({ preventScroll: true });
   };
   // SDL only takes mouse focus on "mouseenter". The canvas usually appears under a pointer that
   // never re-enters it, so re-announce the pointer before input reaches SDL's own listeners.

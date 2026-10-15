@@ -80,7 +80,7 @@ try {
   WAA.status("Loading movie…");
   await player.ruffle().load({ url: new URL(data.movie, location.href).href });
   WAA.ready();
-  player.focus?.();
+  player.focus?.({ preventScroll: true });
 } catch (err) {
   WAA.fail(err);
 }

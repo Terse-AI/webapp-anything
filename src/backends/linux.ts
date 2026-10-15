@@ -159,7 +159,7 @@ try {
   await files.writeFile("/app.tar", archive);
   WAA.ready();
   term.focus();
-  term.write("\x1b[2mStarting… the first run streams parts of a Debian disk image and can take a minute.\x1b[0m\r\n");
+  term.write("\\x1b[2mStarting… the first run streams parts of a Debian disk image and can take a minute.\\x1b[0m\\r\\n");
   for (;;) {
     const result = await cx.run("/bin/sh", ["-c", data.script], {
       env: ["HOME=/home/user", "USER=user", "TERM=xterm-256color", "LANG=C.UTF-8", "PATH=/usr/local/bin:/usr/bin:/bin"],

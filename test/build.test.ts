@@ -31,6 +31,34 @@ async function exists(file: string) {
   );
 }
 
+const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (code: string) => unknown;
+
+describe("player pages", () => {
+  // Boot code is JavaScript inside TypeScript template literals, where a single backslash escape
+  // silently turns into a raw character. Compile every backend's generated boot module.
+  it.each([
+    ["dos", "hello.com", () => fx.dosCom()],
+    ["windows", "hello.exe", () => fx.peExe()],
+    ["flash", "movie.swf", () => fx.swfMovie({ frames: 2 })],
+    ["java", "app.jar", () => fx.jar()],
+    ["disk", "boot.img", () => fx.bootFloppy()],
+    ["linux", "hello", () => fx.linuxHello()],
+  ] as const)("%s boot script compiles", async (backend, name, data) => {
+    const { result, html } = await build(await writeFileTemp(name, data()));
+    expect(result.manifest.backend.id).toBe(backend);
+    const boot = html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1];
+    expect(boot).toBeTruthy();
+    expect(() => new AsyncFunction(boot!)).not.toThrow();
+  });
+
+  it("player.js and the Electron shim compile", async () => {
+    for (const file of ["player.js", "electron-shim.js"]) {
+      const code = await readFile(path.join("assets", "player", file), "utf8");
+      expect(() => new Function(code)).not.toThrow();
+    }
+  });
+});
+
 describe("dos backend", () => {
   it("packs a lone .COM into a js-dos bundle with an autoexec", async () => {
     const { result, outDir, html, read } = await build(await writeFileTemp("hello.com", fx.dosCom()));

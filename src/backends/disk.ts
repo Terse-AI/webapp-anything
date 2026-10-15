@@ -66,7 +66,7 @@ export const diskBackend: Backend = {
         title: options.title,
         autostart: options.autostart,
         head: `<style>
-#screen_container{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+#screen_container{outline:none;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
 #screen_container > div{white-space:pre;font:14px/14px monospace;color:#ccc}
 #screen_container canvas{image-rendering:pixelated;max-width:100%;max-height:100%}
 </style>`,
@@ -98,7 +98,7 @@ try {
   });
   emulator.add_listener("emulator-ready", () => {
     WAA.ready();
-    document.getElementById("screen_container").focus();
+    document.getElementById("screen_container").focus({ preventScroll: true });
   });
   window.waaEmulator = emulator;
 } catch (err) {

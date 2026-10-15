@@ -84,19 +84,23 @@
     return new Promise(() => {});
   }
 
+  // The play button is on screen as soon as the page renders, before the boot module runs,
+  // so remember an early click instead of attaching the listener late.
+  let played = false;
+  let onPlay = null;
+  playBtn.addEventListener("click", () => {
+    if (played) return;
+    played = true;
+    status("Starting…");
+    onPlay?.();
+  });
+
   function gate() {
-    if (config.autostart) return Promise.resolve();
+    if (config.autostart || played) return Promise.resolve();
     setState("gate");
     playBtn.focus({ preventScroll: true });
     return new Promise((resolve) => {
-      playBtn.addEventListener(
-        "click",
-        () => {
-          status("Starting…");
-          resolve();
-        },
-        { once: true },
-      );
+      onPlay = resolve;
     });
   }
 
@@ -211,6 +215,11 @@
     }
     if (dialog.showModal) dialog.showModal();
   }
+
+  // The player is a fixed, full-window layout; runtimes that focus their canvas must not scroll it.
+  window.addEventListener("scroll", () => {
+    if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+  });
 
   $("waa-fullscreen")?.addEventListener("click", toggleFullscreen);
   $("waa-info-btn")?.addEventListener("click", showInfo);
