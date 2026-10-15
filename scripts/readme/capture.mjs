@@ -61,9 +61,9 @@ class Cdp {
     await sleep(ms);
     await this.send("Page.stopScreencast");
     const picked = frames.filter((_, i) => i % step === 0).slice(0, max);
-    picked.forEach((data, i) =>
-      writeFileSync(file.replace(/\.png$/, `-${i + 1}.png`), Buffer.from(data, "base64")),
-    );
+    for (const [i, data] of picked.entries()) {
+      writeFileSync(file.replace(/\.png$/, `-${i + 1}.png`), Buffer.from(data, "base64"));
+    }
     console.log(`  saved ${picked.length} burst frames (${frames.length} recorded)`);
   }
   send(method, params = {}) {
