@@ -1,0 +1,26 @@
+name: Runtime integrity
+
+# Re-downloads every pinned runtime from its upstream source and checks the hashes,
+# so upstream changes (deleted releases, re-published tarballs) are caught early.
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - src/runtimes/**
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:runtimes

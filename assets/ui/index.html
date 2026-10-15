@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>webapp-anything</title>
+<meta name="description" content="Turn desktop software into web apps and publish them.">
+<link rel="icon" href="/ui/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/ui/style.css">
+<script src="/ui/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img src="/ui/icon.svg" alt="" width="28" height="28"><span>webapp-anything</span><small id="version"></small></div>
+  <button class="btn ghost" id="token-btn" type="button">Publish token</button>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Put any program on the web</h1>
+    <p class="muted">DOS and Windows programs, Java apps, Flash movies, Linux binaries and disk images become a link that runs in the browser.</p>
+  </section>
+
+  <section class="card" id="step-upload">
+    <label class="drop" id="drop" for="file">
+      <input type="file" id="file" hidden>
+      <strong>Drop a file here</strong>
+      <span class="muted">or click to choose: .exe, .com, .zip, .jar, .swf, .iso, .img, a Linux binary…</span>
+      <span class="muted small">Zip folders first so the program keeps its data files.</span>
+    </label>
+    <div class="upload-progress" id="upload-progress" hidden>
+      <progress id="upload-bar" max="1" value="0"></progress>
+      <span class="muted" id="upload-label">Uploading…</span>
+    </div>
+    <ul class="chips" id="backends"></ul>
+  </section>
+
+  <section class="card" id="step-plan" hidden>
+    <h2>What we found</h2>
+    <dl class="facts">
+      <dt>File</dt><dd id="found-file"></dd>
+      <dt>Detected</dt><dd id="found-summary"></dd>
+    </dl>
+    <div class="notice warn" id="found-warnings" hidden></div>
+    <div class="notice error" id="found-unsupported" hidden></div>
+    <form id="publish-form" class="form">
+      <label>Runs on
+        <select id="backend"></select>
+      </label>
+      <label>Title
+        <input id="title" maxlength="120" required>
+      </label>
+      <label>Address
+        <span class="slug"><span class="muted" id="slug-prefix"></span><input id="slug" pattern="[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?" maxlength="63" required></span>
+      </label>
+      <label class="check"><input type="checkbox" id="autostart"> Start without a play button</label>
+      <p class="muted small">Only publish software you have the right to share.</p>
+      <div class="row">
+        <button class="btn" id="publish" type="submit">Publish</button>
+        <button class="btn ghost" id="restart" type="button">Choose another file</button>
+      </div>
+      <p class="notice error" id="publish-error" hidden></p>
+    </form>
+  </section>
+
+  <section class="card" id="step-done" hidden>
+    <h2>Published</h2>
+    <p><a id="done-link" href="/" target="_blank" rel="noopener">Your app</a></p>
+    <div class="row">
+      <a class="btn" id="done-open" href="/" target="_blank" rel="noopener">Open app</a>
+      <button class="btn ghost" id="done-copy" type="button">Copy link</button>
+      <button class="btn ghost" id="done-again" type="button">Publish another</button>
+    </div>
+    <p class="muted small" id="done-key"></p>
+    <div class="notice warn" id="done-warnings" hidden></div>
+  </section>
+
+  <section class="card" id="apps-section" hidden>
+    <div class="row between"><h2>Published apps</h2><span class="muted small" id="apps-stats"></span></div>
+    <ul class="apps" id="apps"></ul>
+  </section>
+</main>
+
+<dialog id="token-dialog" class="dialog">
+  <form method="dialog" id="token-form">
+    <h2>Publish token</h2>
+    <p class="muted">The server prints its token on first start and keeps it in <code>&lt;data&gt;/token</code>. It is stored only in this browser.</p>
+    <input id="token" type="password" autocomplete="off" placeholder="Paste token">
+    <div class="row">
+      <button class="btn" value="save" type="submit">Save</button>
+      <button class="btn ghost" value="clear" id="token-clear" type="button">Forget</button>
+      <button class="btn ghost" value="cancel" type="button" id="token-cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<footer class="foot muted small">Open source · <a href="https://github.com/Terse-AI/webapp-anything" target="_blank" rel="noopener">github.com/Terse-AI/webapp-anything</a></footer>
+</body>
+</html>

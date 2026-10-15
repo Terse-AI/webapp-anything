@@ -1,0 +1,33 @@
+name: Compatibility report
+description: Tell us how a program ran (or did not run) in the browser.
+labels: [compatibility]
+body:
+  - type: input
+    id: program
+    attributes:
+      label: Program
+      description: Name, version and where it comes from. Please do not attach software you may not share.
+    validations:
+      required: true
+  - type: textarea
+    id: scan
+    attributes:
+      label: Output of `waa scan <input>`
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Works
+        - Starts but has problems
+        - Does not start
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Build options you used, browser and OS, console errors, screenshots.

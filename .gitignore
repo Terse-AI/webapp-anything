@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# local build output and server data
+out/
+.waa/
+waa-data/
+examples/out/
+
+# local tooling
+.claude/

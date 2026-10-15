@@ -1,0 +1,67 @@
+{
+  "name": "webapp-anything",
+  "version": "0.1.0",
+  "description": "Turn desktop software (DOS and Windows programs, Java apps, Flash movies, Linux binaries, disk images) into web apps you can publish with one command.",
+  "keywords": [
+    "webassembly",
+    "emulator",
+    "dos",
+    "wine",
+    "flash",
+    "java",
+    "legacy",
+    "preservation",
+    "static-site",
+    "self-hosted"
+  ],
+  "homepage": "https://github.com/Terse-AI/webapp-anything#readme",
+  "bugs": "https://github.com/Terse-AI/webapp-anything/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Terse-AI/webapp-anything.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "waa": "dist/cli.js",
+    "webapp-anything": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:runtimes": "WAA_NETWORK_TESTS=1 vitest run test/runtimes.network.test.ts",
+    "examples": "node scripts/make-examples.mjs",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@types/node": "^22.18.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

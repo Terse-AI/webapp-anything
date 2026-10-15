@@ -1,0 +1,274 @@
+/* webapp-anything player shell. MIT License. */
+:root {
+  --waa-bg: #0b0d12;
+  --waa-panel: #151924;
+  --waa-line: #262c3b;
+  --waa-text: #e8ebf2;
+  --waa-muted: #98a1b3;
+  --waa-accent: #7aa2ff;
+  --waa-danger: #ff7a7a;
+  --waa-bar: 40px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--waa-bg);
+  color: var(--waa-text);
+  font:
+    14px / 1.45 ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  overflow: hidden;
+}
+
+.waa-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--waa-bar);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 14px;
+  background: var(--waa-panel);
+  border-bottom: 1px solid var(--waa-line);
+  z-index: 20;
+}
+
+.waa-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.waa-bar .waa-btn,
+.waa-dialog .waa-btn,
+.waa-overlay .waa-btn {
+  appearance: none;
+  border: 1px solid var(--waa-line);
+  background: transparent;
+  color: var(--waa-text);
+  border-radius: 8px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.waa-bar .waa-btn:hover,
+.waa-dialog .waa-btn:hover,
+.waa-overlay .waa-btn:hover {
+  border-color: var(--waa-accent);
+}
+
+.waa-btn:focus-visible {
+  outline: 2px solid var(--waa-accent);
+  outline-offset: 2px;
+}
+
+.waa-stage {
+  position: fixed;
+  inset: var(--waa-bar) 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+}
+
+.waa-stage:fullscreen {
+  inset: 0;
+}
+
+body.waa-soft-fullscreen .waa-bar {
+  display: none;
+}
+
+body.waa-soft-fullscreen .waa-stage {
+  inset: 0;
+}
+
+.waa-overlay {
+  position: fixed;
+  inset: var(--waa-bar) 0 0 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--waa-bg) 92%, transparent);
+  z-index: 10;
+  padding: 16px;
+}
+
+.waa-overlay[hidden] {
+  display: none;
+}
+
+.waa-card {
+  width: min(440px, 100%);
+  text-align: center;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
+.waa-card > * {
+  display: none;
+}
+
+.waa-overlay[data-state="gate"] .waa-gate,
+.waa-overlay[data-state="loading"] .waa-loading,
+.waa-overlay[data-state="error"] .waa-failure {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.waa-overlay .waa-play {
+  appearance: none;
+  border: 0;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--waa-accent);
+  color: #0b0d12;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 40px rgb(122 162 255 / 35%);
+}
+
+.waa-overlay .waa-play:hover {
+  transform: scale(1.04);
+}
+
+.waa-play:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.waa-sub {
+  color: var(--waa-muted);
+  margin: 0;
+}
+
+.waa-loading progress {
+  width: 260px;
+  max-width: 100%;
+  height: 6px;
+  accent-color: var(--waa-accent);
+}
+
+.waa-failure strong {
+  color: var(--waa-danger);
+}
+
+.waa-failure p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+dialog.waa-dialog {
+  width: min(520px, calc(100% - 32px));
+  background: var(--waa-panel);
+  color: var(--waa-text);
+  border: 1px solid var(--waa-line);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+dialog.waa-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.waa-dialog h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.waa-dialog h3 {
+  margin: 16px 0 6px;
+  font-size: 13px;
+  color: var(--waa-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.waa-dialog dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.waa-dialog dt {
+  color: var(--waa-muted);
+}
+
+.waa-dialog dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.waa-dialog ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.waa-dialog a {
+  color: var(--waa-accent);
+}
+
+.waa-notice {
+  color: var(--waa-muted);
+  font-size: 12px;
+}
+
+.waa-dialog footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  color: var(--waa-muted);
+  font-size: 12px;
+}
+
+/* Text console used by terminal-style programs. */
+.waa-console {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  background: #000;
+  color: #d7dde8;
+  font:
+    14px / 1.35 ui-monospace,
+    "SF Mono",
+    Menlo,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+}
+
+.waa-fit {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+@media (max-width: 520px) {
+  .waa-btn .waa-label {
+    display: none;
+  }
+}

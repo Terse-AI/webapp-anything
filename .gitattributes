@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.exe binary
+*.COM binary
+*.com binary
+*.img binary
+*.swf binary
+*.jar binary
+examples/hello-linux/hello binary

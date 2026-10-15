@@ -1,0 +1,23 @@
+# Self-hosted webapp-anything server.
+#   docker compose up -d
+# The publish token is printed in the logs on first start (docker compose logs waa)
+# and saved in the waa-data volume. Put a TLS reverse proxy in front for public use.
+services:
+  waa:
+    build: .
+    image: ghcr.io/terse-ai/webapp-anything:latest
+    ports:
+      - "8080:8080"
+    environment:
+      WAA_PUBLIC_URL: http://localhost:8080
+      # WAA_TOKEN: replace-with-a-long-random-string
+      # Serve every app from its own origin (needs wildcard DNS + TLS):
+      # WAA_APP_ORIGIN: https://{slug}.apps.example.com
+      # WAA_TRUST_PROXY: "1"
+      # WAA_MAX_UPLOAD_MB: "1024"
+    volumes:
+      - waa-data:/data
+    restart: unless-stopped
+
+volumes:
+  waa-data:
