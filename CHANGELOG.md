@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: Linux apps never started (a syntax error in the generated boot script). Every backend's boot script is
+  now compiled in the tests.
+- Fixed: Windows programs switched the page to real fullscreen on the first click.
+- Fixed: a click on the play button before the page finished loading was ignored.
+- Fixed: focusing a runtime's canvas could scroll the player toolbar out of view.
+- Docs: animated README with real screenshots; generators in `scripts/readme`.
+
 ## 0.1.0 — 2026-10-15
 
 First release.
