@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="399" viewBox="0 0 920 399" role="img" aria-labelledby="t">
+<title id="t">Terminal: scan, build and publish a Windows program with webapp-anything</title>
+<style>
+@keyframes l0 { 0%, 3.28% { opacity: 0 } 3.33%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l0 { animation: l0 18s infinite both; }
+@keyframes m0 { 0%, 4.72% { transform: translateX(0) } 13.56% { transform: translateX(266.9px) } 13.61%, 100% { transform: translateX(2000px) } }
+.m0 { transform: translateX(2000px); animation: m0 18s infinite both; animation-timing-function: steps(34, end); }
+@keyframes l1 { 0%, 16.56% { opacity: 0 } 16.61%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l1 { animation: l1 18s infinite both; }
+@keyframes l2 { 0%, 17.22% { opacity: 0 } 17.28%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l2 { animation: l2 18s infinite both; }
+@keyframes l3 { 0%, 17.89% { opacity: 0 } 17.94%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l3 { animation: l3 18s infinite both; }
+@keyframes l4 { 0%, 18.56% { opacity: 0 } 18.61%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l4 { animation: l4 18s infinite both; }
+@keyframes l6 { 0%, 25.89% { opacity: 0 } 25.94%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l6 { animation: l6 18s infinite both; }
+@keyframes m6 { 0%, 27.33% { transform: translateX(0) } 36.36% { transform: translateX(274.8px) } 36.42%, 100% { transform: translateX(2000px) } }
+.m6 { transform: translateX(2000px); animation: m6 18s infinite both; animation-timing-function: steps(35, end); }
+@keyframes l7 { 0%, 39.36% { opacity: 0 } 39.42%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l7 { animation: l7 18s infinite both; }
+@keyframes l8 { 0%, 40.03% { opacity: 0 } 40.08%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l8 { animation: l8 18s infinite both; }
+@keyframes l9 { 0%, 40.69% { opacity: 0 } 40.75%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l9 { animation: l9 18s infinite both; }
+@keyframes l10 { 0%, 41.36% { opacity: 0 } 41.42%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l10 { animation: l10 18s infinite both; }
+@keyframes l12 { 0%, 48.69% { opacity: 0 } 48.75%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l12 { animation: l12 18s infinite both; }
+@keyframes m12 { 0%, 50.14% { transform: translateX(0) } 62.36% { transform: translateX(565.2px) } 62.42%, 100% { transform: translateX(2000px) } }
+.m12 { transform: translateX(2000px); animation: m12 18s infinite both; animation-timing-function: steps(72, end); }
+@keyframes l13 { 0%, 65.36% { opacity: 0 } 65.42%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l13 { animation: l13 18s infinite both; }
+@keyframes l14 { 0%, 66.03% { opacity: 0 } 66.08%, 96% { opacity: 1 } 99%, 100% { opacity: 0 } }
+.l14 { animation: l14 18s infinite both; }
+.cur { animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0 } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+<rect x="0.5" y="0.5" width="919" height="398" rx="12" fill="#0d1117" stroke="#30363d"/>
+<path d="M12.5 0.5 H907.5 A12 12 0 0 1 919.5 12.5 V34 H0.5 V12.5 A12 12 0 0 1 12.5 0.5 Z" fill="#161b22"/>
+<line x1="0.5" y1="34" x2="919.5" y2="34" stroke="#30363d"/>
+<circle cx="20" cy="17" r="6" fill="#ff5f57"/><circle cx="40" cy="17" r="6" fill="#febc2e"/><circle cx="60" cy="17" r="6" fill="#28c840"/>
+<text x="460" y="22" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" fill="#7d8590">~/games — zsh</text>
+<g class="l0">
+  <text x="22" y="58" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#3fb950" font-weight="700">❯</text>
+  <text x="37.7" y="58" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#f0f6fc">npx webapp-anything scan hello.exe</text>
+  <g class="m0"><rect x="36.7" y="43" width="278.9" height="20" fill="#0d1117"/><rect class="cur" x="37.7" y="45" width="8" height="16" fill="#c9d1d9"/></g>
+</g>
+<text class="l1" x="22" y="79" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#f0f6fc" font-weight="700">Input    </tspan><tspan fill="#c9d1d9">hello.exe </tspan><tspan fill="#7d8590">(4.0 KB, file, 1 file)</tspan></text>
+<text class="l2" x="22" y="100" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#f0f6fc" font-weight="700">Found    </tspan><tspan fill="#c9d1d9">Windows program (32-bit x86, gui): hello.exe</tspan></text>
+<text class="l3" x="22" y="121" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#f0f6fc" font-weight="700">Runs on  </tspan><tspan fill="#c9d1d9">windows — Windows (Boxedwine) </tspan><tspan fill="#7d8590">score 80, experimental</tspan></text>
+<text class="l4" x="22" y="142" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#7d8590">         32-bit Windows programs run under Wine in the browser.</tspan></text>
+<g class="l6">
+  <text x="22" y="184" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#3fb950" font-weight="700">❯</text>
+  <text x="37.7" y="184" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#f0f6fc">npx webapp-anything build hello.exe</text>
+  <g class="m6"><rect x="36.7" y="169" width="286.8" height="20" fill="#0d1117"/><rect class="cur" x="37.7" y="171" width="8" height="16" fill="#c9d1d9"/></g>
+</g>
+<text class="l7" x="22" y="205" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#7d8590">Downloading Boxedwine 26R1 (one-time, cached)…</tspan></text>
+<text class="l8" x="22" y="226" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#f0f6fc" font-weight="700">Built    </tspan><tspan fill="#c9d1d9">Hello → out/hello</tspan></text>
+<text class="l9" x="22" y="247" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#f0f6fc" font-weight="700">Runs on  </tspan><tspan fill="#c9d1d9">Windows (Boxedwine) </tspan><tspan fill="#7d8590">(experimental)</tspan></text>
+<text class="l10" x="22" y="268" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#f0f6fc" font-weight="700">Size     </tspan><tspan fill="#c9d1d9">38 MB in 17 files</tspan></text>
+<g class="l12">
+  <text x="22" y="310" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#3fb950" font-weight="700">❯</text>
+  <text x="37.7" y="310" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#f0f6fc">npx webapp-anything publish out/hello --to github-pages --repo you/games</text>
+  <g class="m12"><rect x="36.7" y="295" width="577.2" height="20" fill="#0d1117"/><rect class="cur" x="37.7" y="297" width="8" height="16" fill="#c9d1d9"/></g>
+</g>
+<text class="l13" x="22" y="331" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#f0f6fc" font-weight="700">Published </tspan><tspan fill="#79c0ff">https://you.github.io/games/hello/</tspan></text>
+<text class="l14" x="22" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" xml:space="preserve"><tspan fill="#7d8590">  Created the gh-pages branch. Enable GitHub Pages for it under Settings → Pages.</tspan></text>
+</svg>

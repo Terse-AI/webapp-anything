@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="250" viewBox="0 0 1200 250" role="img" aria-labelledby="t">
+<title id="t">How it works: scan, plan, build, publish</title>
+<style>
+  .ring { opacity: 0; animation: ring 8s infinite both; animation-delay: inherit; }
+  .card { animation: none; }
+  .card:first-of-type .ring { opacity: 1; }
+  @keyframes ring { 0% { opacity: 0 } 4% { opacity: 1 } 24% { opacity: 1 } 28% { opacity: 0 } 100% { opacity: 0 } }
+  .flow { stroke-dasharray: 4 8; animation: flow 0.9s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -24 } }
+  .bar { transform-box: fill-box; transform-origin: bottom; animation: grow 2.4s ease-in-out infinite; }
+  .b1 { animation-delay: 0.2s; } .b2 { animation-delay: 0.4s; }
+  @keyframes grow { 0%, 100% { transform: scaleY(0.45) } 50% { transform: scaleY(1) } }
+  .scanline { animation: scan 2s ease-in-out infinite; }
+  @keyframes scan { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(14px) } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+<rect width="1200" height="250" fill="#ffffff"/>
+<line class="flow" x1="282" y1="125" x2="328.6666666666667" y2="125" stroke="#0969da" stroke-width="2" stroke-linecap="round"/>
+<path d="M322.6666666666667 120 l6 5 l-6 5" fill="none" stroke="#0969da" stroke-width="2" stroke-linecap="round"/>
+<line class="flow" x1="576.6666666666667" y1="125" x2="623.3333333333334" y2="125" stroke="#0969da" stroke-width="2" stroke-linecap="round"/>
+<path d="M617.3333333333334 120 l6 5 l-6 5" fill="none" stroke="#0969da" stroke-width="2" stroke-linecap="round"/>
+<line class="flow" x1="871.3333333333334" y1="125" x2="918" y2="125" stroke="#0969da" stroke-width="2" stroke-linecap="round"/>
+<path d="M912 120 l6 5 l-6 5" fill="none" stroke="#0969da" stroke-width="2" stroke-linecap="round"/>
+<g class="card" style="animation-delay:0.00s">
+  <rect x="40" y="40" width="236" height="170" rx="16" fill="#f6f8fa" stroke="#d0d7de"/>
+  <rect class="ring" x="40" y="40" width="236" height="170" rx="16" fill="none" stroke="#0969da" stroke-width="2"/>
+  <text x="256" y="74" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#59636e">01</text>
+  <g fill="none" stroke="#0969da" stroke-width="2.5" stroke-linecap="round"><circle cx="76" cy="76" r="10"/><path d="M84 84 l9 9"/></g>
+<rect class="scanline" x="67" y="68" width="18" height="2" fill="#0969da"/>
+  <text x="62" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#1f2328">Scan</text>
+  <text x="62" y="160" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#59636e">PE · NE · ELF · Mach-O</text>
+  <text x="62" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#59636e">SWF · JAR · ISO · asar</text>
+</g>
+<g class="card" style="animation-delay:2.00s">
+  <rect x="334.6666666666667" y="40" width="236" height="170" rx="16" fill="#f6f8fa" stroke="#d0d7de"/>
+  <rect class="ring" x="334.6666666666667" y="40" width="236" height="170" rx="16" fill="none" stroke="#0969da" stroke-width="2"/>
+  <text x="550.6666666666667" y="74" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#59636e">02</text>
+  <rect class="bar b0" x="358.6666666666667" y="84" width="8" height="10" rx="2" fill="#0969da"/><rect class="bar b1" x="369.6666666666667" y="76" width="8" height="18" rx="2" fill="#0969da"/><rect class="bar b2" x="380.6666666666667" y="68" width="8" height="26" rx="2" fill="#0969da"/>
+  <text x="356.6666666666667" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#1f2328">Plan</text>
+  <text x="356.6666666666667" y="160" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#59636e">9 backends score it,</text>
+  <text x="356.6666666666667" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#59636e">the best one wins</text>
+</g>
+<g class="card" style="animation-delay:4.00s">
+  <rect x="629.3333333333334" y="40" width="236" height="170" rx="16" fill="#f6f8fa" stroke="#d0d7de"/>
+  <rect class="ring" x="629.3333333333334" y="40" width="236" height="170" rx="16" fill="none" stroke="#0969da" stroke-width="2"/>
+  <text x="845.3333333333334" y="74" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#59636e">03</text>
+  <g fill="none" stroke="#0969da" stroke-width="2.5" stroke-linejoin="round"><path d="M667.3333333333334 64 l14 7 v16 l-14 7 l-14 -7 v-16 z"/><path d="M653.3333333333334 71 l14 7 l14 -7 M667.3333333333334 78 v16"/></g>
+  <text x="651.3333333333334" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#1f2328">Build</text>
+  <text x="651.3333333333334" y="160" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#59636e">static bundle with a</text>
+  <text x="651.3333333333334" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#59636e">pinned, verified runtime</text>
+</g>
+<g class="card" style="animation-delay:6.00s">
+  <rect x="924" y="40" width="236" height="170" rx="16" fill="#f6f8fa" stroke="#d0d7de"/>
+  <rect class="ring" x="924" y="40" width="236" height="170" rx="16" fill="none" stroke="#0969da" stroke-width="2"/>
+  <text x="1140" y="74" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#59636e">04</text>
+  <g fill="none" stroke="#0969da" stroke-width="2.5"><circle cx="962" cy="78" r="14"/><ellipse cx="962" cy="78" rx="6" ry="14"/><path d="M948 78 h28"/></g>
+  <text x="946" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#1f2328">Publish</text>
+  <text x="946" y="160" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#59636e">waa serve · GitHub Pages</text>
+  <text x="946" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#59636e">Netlify · Vercel · any host</text>
+</g>
+</svg>

@@ -12,3 +12,6 @@ examples/out/
 
 # local tooling
 .claude/
+
+# README screenshot sources (regenerate with scripts/readme/capture.mjs)
+.github/assets/screens-src/

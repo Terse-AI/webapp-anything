@@ -1,52 +1,143 @@
-# webapp-anything
+<div align="center"><a name="readme-top"></a>
 
-**把桌面软件变成网页版，一条命令发布。**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-dark.svg">
+  <img alt="webapp-anything：把任何桌面程序变成一个能在浏览器里运行的链接" src=".github/assets/banner-light.svg" width="100%">
+</picture>
 
-丢给它一个老 DOS 游戏、Windows `.exe`、Java `.jar`、Flash 动画、Linux 程序或可启动的磁盘镜像，它会：
+### 把桌面软件变成网页版，一条命令发布。
 
-1. **扫描**：识别文件格式（PE/NE/LE/MZ、ELF、Mach-O、SWF、ISO、JAR、asar……），在压缩包里找出真正的主程序；
-2. **选运行时**：给每个后端打分，挑一个能在浏览器里跑它的；
-3. **打包**：生成一个纯静态网站（播放器页面 + 程序 + 版本锁定、校验过哈希的运行时）；
-4. **发布**：发到自建服务器、GitHub Pages 或任何静态托管。
+DOS / Windows 程序 · Java 应用 · Flash 动画 · Linux 程序 · 可启动磁盘镜像
+
+[English](README.md) · **简体中文** · [快速开始](#-快速开始) · [支持哪些程序](#-支持哪些程序) · [自建服务器](#-自建发布服务器) · [文档](docs/architecture.md)
+
+[![][ci-shield]][ci-link]
+[![][license-shield]][license-link]
+[![][node-shield]][node-link]
+[![][ts-shield]][ts-link]
+[![][docker-shield]][docker-link]
+
+<br>
+
+<img src=".github/assets/terminal.svg" alt="终端演示：扫描、打包、发布一个 Windows 程序" width="860">
+
+</div>
+
+## ✨ 为什么用它
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**🪄 不用重写**
+
+直接给它现成的 `.exe`、`.jar`、`.swf`、`.iso` 或压缩包。它会读文件头、找出主程序，再挑一个能原样运行它的浏览器运行时。
+
+</td>
+<td width="33%" valign="top">
+
+**🌐 在浏览器里跑**
+
+程序在访问者浏览器的 WebAssembly 沙盒里执行（DOSBox、Wine、Ruffle、JVM、x86 PC、Linux 用户态），服务器只负责提供静态文件。
+
+</td>
+<td width="33%" valign="top">
+
+**🚀 哪里都能发布**
+
+产物是纯静态网站：可离线、可安装为 PWA，自带 Netlify / Cloudflare Pages / Vercel 的响应头配置，也可以推到 GitHub Pages 或自建服务器。
+
+</td>
+</tr>
+</table>
+
+## 🎬 实际运行效果
+
+<div align="center">
+<img src=".github/assets/showcase.webp" alt="六个样例程序在浏览器中运行" width="100%">
+<br>
+<sub>以上是 <a href="examples"><code>examples/</code></a> 里的样例用 <code>waa build</code> 打包后在 Chrome 中运行的真实截图。</sub>
+</div>
+
+## 🧩 支持哪些程序
+
+| 输入 | 运行时 | 状态 |
+| :-- | :-- | :-: |
+| DOS 程序、DOS/4GW 游戏、js-dos 包 | js-dos（DOSBox） | ![][stable] |
+| 16/32 位 Windows 程序（GDI、DirectDraw） | Boxedwine（Wine + x86 模拟） | ![][experimental] |
+| Flash `.swf` | Ruffle | ![][stable] |
+| Java `.jar`（Swing/AWT，Java 8/11/17） | CheerpJ | ![][stable] |
+| `.iso`、软盘/硬盘镜像 | v86 | ![][stable] |
+| 32 位 x86 Linux 终端程序、脚本 | CheerpX + xterm.js | ![][experimental] |
+| 含 `index.html` 的文件夹或压缩包 | 原样发布 | ![][stable] |
+| Electron 应用 | 渲染进程 + Electron API 替身 | ![][experimental] |
+| 64 位 Windows、64 位/ARM Linux 图形程序 | **stream**：生成 Docker 项目，在服务器上原生运行并用 Selkies 推流 | ![][experimental] |
+| Android、iOS、macOS | 不支持（扫描结果会说明原因） | – |
+
+> [!NOTE]
+> Windows 后端要在模拟的 CPU 上启动 Wine，首次打开需要 10–60 秒。需要 OpenGL/Direct3D 的程序、64 位程序和 .NET 程序在浏览器版里跑不了，可以改用 `--backend stream`。
+
+## 🚀 快速开始
+
+需要 Node.js 22.12 或更高版本。
 
 ```bash
-npx webapp-anything build game.zip
-npx webapp-anything preview out/game
+npx webapp-anything build game.zip                                  # → out/game/
+npx webapp-anything preview out/game                                # → http://127.0.0.1:4173
 npx webapp-anything publish out/game --to github-pages --repo you/games
 ```
 
-## 支持的程序
+## ⚙️ 工作原理
 
-| 输入 | 运行时 | 状态 |
-| --- | --- | --- |
-| DOS 程序、DOS/4GW 游戏、js-dos 包 | js-dos（DOSBox） | 稳定 |
-| 16/32 位 Windows 程序（GDI、DirectDraw） | Boxedwine（Wine + x86 模拟） | 实验 |
-| Flash `.swf` | Ruffle | 稳定 |
-| Java `.jar`（Swing/AWT，Java 8/11/17） | CheerpJ | 稳定 |
-| `.iso`、软盘/硬盘镜像 | v86 | 稳定 |
-| 32 位 x86 Linux 终端程序、脚本 | CheerpX + xterm.js | 实验 |
-| 含 `index.html` 的文件夹/压缩包 | 原样发布 | 稳定 |
-| Electron 应用 | 渲染进程 + Electron API 替身 | 实验 |
-| 64 位 Windows、64 位/ARM Linux 图形程序 | **stream**：生成 Docker 项目，服务器原生运行并用 Selkies 推流 | 实验 |
-| Android、iOS、macOS | 不支持（扫描结果会说明原因） | – |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/pipeline-dark.svg">
+  <img alt="扫描、选运行时、打包、发布" src=".github/assets/pipeline-light.svg" width="100%">
+</picture>
 
-`examples/` 里每一类都有样例，并在真实浏览器里验证过：DOS 程序输出文字，Flash 动画在动，软盘经 SeaBIOS 启动，
-Win32 和 Swing 窗口能响应点击，Linux 程序能在终端里读输入。
+1. **扫描**：不解压，只读需要的文件头（PE/NE/LE/MZ、ELF、Mach-O、SWF、ISO、JAR、asar……），并给压缩包里的每个候选程序打分。
+2. **选运行时**：每个后端给扫描结果打分，分最高的胜出，也可以用 `--backend` 指定。
+3. **打包**：按运行时的要求打包程序，再生成播放器页面。
+4. **发布**：产物是带清单文件的静态网站，放在哪里都能用。
 
-## 自建发布服务器
+## 🛳 自建发布服务器
 
 ```bash
-waa serve --port 8080 --data ./waa-data   # 首次启动会打印发布 token
-docker compose up -d                      # 或者用 Docker
+docker compose up -d                        # 数据在 waa-data 卷里
+# 或者
+waa serve --port 8080 --data ./waa-data     # 首次启动会打印发布 token
 ```
 
-打开网页，拖入文件，看识别结果，选运行时，点发布，就能拿到链接。文件按内容哈希存储，同一个运行时被一百个应用共用也只占一份空间。
+打开网页，拖入文件，确认识别结果，选运行时，点发布，就能拿到链接。文件按内容哈希存储，同一个运行时被一百个应用共用也只占一份空间。
 对外开放上传时，请用 `--app-origin https://{slug}.apps.example.com` 让每个应用使用独立的源。
 
-## 法律
+## ⚖️ 许可证
 
 本项目使用 MIT 许可证。各运行时保留各自的许可证，并会随 bundle 一起附带：js-dos 和 Boxedwine 是 GPL-2.0；
 CheerpJ/CheerpX 是闭源软件，个人和开源用途免费，商业用途需要向 Leaning Technologies 购买授权。
-**只发布你有权分发的软件。**
 
-完整文档见 [README.md](README.md)。
+> [!IMPORTANT]
+> 只发布你有权分发的软件。把程序转成网页版不会改变它原来的许可证。
+
+完整文档见 [README.md](README.md) 和 [docs/](docs)。
+
+<div align="right">
+
+[![][back-to-top]](#readme-top)
+
+</div>
+
+<!-- LINK GROUP -->
+
+[back-to-top]: https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square
+[ci-link]: https://github.com/Terse-AI/webapp-anything/actions/workflows/ci.yml
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/Terse-AI/webapp-anything/ci.yml?branch=main&label=CI&labelColor=black&logo=githubactions&logoColor=white&style=flat-square
+[docker-link]: compose.yaml
+[docker-shield]: https://img.shields.io/badge/docker-compose_ready-2496ed?labelColor=black&logo=docker&logoColor=white&style=flat-square
+[experimental]: https://img.shields.io/badge/experimental-d29922?style=flat-square
+[license-link]: LICENSE
+[license-shield]: https://img.shields.io/badge/license-MIT-7aa2ff?labelColor=black&style=flat-square
+[node-link]: https://nodejs.org
+[node-shield]: https://img.shields.io/badge/node-%E2%89%A522.12-6ce09a?labelColor=black&logo=nodedotjs&logoColor=white&style=flat-square
+[stable]: https://img.shields.io/badge/stable-2ea043?style=flat-square
+[ts-link]: tsconfig.json
+[ts-shield]: https://img.shields.io/badge/TypeScript-strict-3178c6?labelColor=black&logo=typescript&logoColor=white&style=flat-square
