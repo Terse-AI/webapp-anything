@@ -17,6 +17,7 @@ import { fileSource } from "../util/bytes.js";
 import { errorMessage, UserError } from "../util/errors.js";
 import { type Logger, silentLogger } from "../util/log.js";
 import { isValidSlug, resolveInside, safeRelativePath, slugify } from "../util/paths.js";
+import { SaveStore, SYNC_CODE_RE } from "./saves.js";
 import { bundlePathFor, sendFile } from "./static.js";
 import { AppStore, hashKey, publicApp } from "./store.js";
 
@@ -34,6 +35,8 @@ export interface ServerOptions {
   /** Anonymous uploads allowed per IP per hour when openUploads is on. */
   uploadsPerHour?: number;
   buildConcurrency?: number;
+  /** Largest saved game accepted for device sync. */
+  maxSaveBytes?: number;
   log?: Logger;
   runtimes?: RuntimeProvider;
 }
@@ -222,6 +225,10 @@ export async function createHandler(o: ServerOptions) {
   const maxUpload = o.maxUploadBytes ?? 1024 * 1024 * 1024;
   const builds = new Semaphore(o.buildConcurrency ?? 2, 32);
   const limiter = new RateLimiter(o.uploadsPerHour ?? 20);
+  const saveStore = new SaveStore(path.join(dataDir, "saves"));
+  const saveCodeLimiter = new RateLimiter(30);
+  const saveWriteLimiter = new RateLimiter(600);
+  const maxSave = o.maxSaveBytes ?? 64 * 1024 * 1024;
   const uploadsDir = path.join(dataDir, "uploads");
   await rm(uploadsDir, { recursive: true, force: true });
   await mkdir(uploadsDir, { recursive: true });
@@ -265,6 +272,33 @@ export async function createHandler(o: ServerOptions) {
     if (!appOrigin) return `${baseUrl(req)}/a/${slug}/`;
     if (appOrigin.includes("{slug}")) return `${appOrigin.replace("{slug}", slug)}/`;
     return `${appOrigin}/a/${slug}/`;
+  };
+
+  /** Where apps reach the save API. Unknown when apps live on another origin and no public URL is set. */
+  const apiBase = (req: IncomingMessage) => configuredUrl ?? (appOrigin ? undefined : baseUrl(req));
+  if (appOrigin && !configuredUrl) {
+    log.warn(
+      "Save sync is off: set --public-url (WAA_PUBLIC_URL) so apps on --app-origin can reach the API.",
+    );
+  }
+  /** CORS for the save API, so apps served from their own origin can sync. */
+  const allowCors = (req: IncomingMessage, res: ServerResponse) => {
+    const origin = String(req.headers.origin ?? "");
+    if (!origin) return;
+    let host: string;
+    try {
+      host = new URL(origin).host.toLowerCase();
+    } catch {
+      return;
+    }
+    const ok = appHostRe?.test(host) || host === appFixedHost || origin === apiBase(req);
+    if (!ok) return;
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Expose-Headers", "ETag, X-WAA-Updated-At");
+    res.setHeader("Access-Control-Max-Age", "600");
   };
 
   const cleanup = setInterval(
@@ -340,6 +374,16 @@ export async function createHandler(o: ServerOptions) {
       return;
     }
     const f = rel ? rec.files[rel] : undefined;
+    if (rel === "waa-sync.json" && !f) {
+      const base = apiBase(req);
+      if (!base) {
+        res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", ...headers }).end("Not found");
+        return;
+      }
+      res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+      for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
+      return sendJson(res, 200, { endpoint: `${base}/api/saves/${slug}` });
+    }
     if (!rel || !f) {
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", ...headers }).end("Not found");
       return;
@@ -413,6 +457,61 @@ export async function createHandler(o: ServerOptions) {
   async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
     const p = url.pathname;
     const method = req.method ?? "GET";
+
+    const sm = /^\/api\/saves\/([^/]+)(?:\/([^/]+))?$/.exec(p);
+    if (sm) {
+      allowCors(req, res);
+      if (method === "OPTIONS") {
+        res.writeHead(204).end();
+        return;
+      }
+      const slug = decodeURIComponent(sm[1]!);
+      if (!isValidSlug(slug) || !store.get(slug)) throw new HttpError(404, "App not found.");
+      const code = sm[2] === undefined ? undefined : decodeURIComponent(sm[2]).toUpperCase();
+      if (code === undefined) {
+        if (method !== "POST") throw new HttpError(405, "Use POST to create a sync code.");
+        if (!saveCodeLimiter.take(clientIp(req)))
+          throw new HttpError(429, "Too many sync codes from your address.");
+        return sendJson(res, 201, { code: await saveStore.create(slug) });
+      }
+      if (!SYNC_CODE_RE.test(code)) throw new HttpError(400, "Invalid sync code.");
+      if (method === "GET") {
+        const saved = await saveStore.read(slug, code);
+        if (!saved) throw new HttpError(404, "No save for this code yet.");
+        res.setHeader("X-WAA-Updated-At", String(saved.meta.updatedAt));
+        return sendFile(
+          req,
+          res,
+          {
+            file: saved.file,
+            size: saved.meta.size,
+            etag: String(saved.meta.updatedAt),
+            name: "save.waasave",
+          },
+          { headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } },
+        );
+      }
+      if (method === "PUT") {
+        if (!saveWriteLimiter.take(clientIp(req)))
+          throw new HttpError(429, "Too many saves from your address.");
+        if (!(await saveStore.meta(slug, code))) throw new HttpError(404, "Unknown sync code.");
+        const work = await store.tempDir("save");
+        try {
+          const file = path.join(work, "save.bin");
+          const size = await receiveToFile(req, file, maxSave);
+          const src = await fileSource(file);
+          const head = new TextDecoder("latin1").decode(await src.read(0, 4));
+          await src.close();
+          if (head !== "WAAS") throw new HttpError(422, "Not a webapp-anything save.");
+          const meta = await saveStore.write(slug, code, file, size);
+          if (!meta) throw new HttpError(404, "Unknown sync code.");
+          return sendJson(res, 200, { updatedAt: meta.updatedAt, size: meta.size });
+        } finally {
+          await rm(work, { recursive: true, force: true });
+        }
+      }
+      throw new HttpError(405, "Method not allowed.");
+    }
 
     if (p === "/api/info" && method === "GET") {
       return sendJson(res, 200, {
@@ -523,6 +622,7 @@ export async function createHandler(o: ServerOptions) {
         if (!store.get(slug)) throw new HttpError(404, "App not found.");
         if (!ownsApp(req, slug)) throw new HttpError(403, "Only the owner can delete this app.");
         await store.delete(slug);
+        await saveStore.deleteApp(slug);
         store.gc().catch((err) => log.warn(`gc failed: ${errorMessage(err)}`));
         log.info("deleted app", { slug });
         return sendJson(res, 200, { deleted: slug });

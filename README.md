@@ -112,8 +112,11 @@ Cloudflare Pages and Vercel. Or push it to GitHub Pages or your own server.
 | 32-bit x86 Linux binaries, shell/Python scripts | [CheerpX](https://cheerpx.io) + xterm.js | ![][experimental] |
 | Folder or zip with `index.html` | published unchanged | ![][stable] |
 | Electron `app.asar` / `resources/app` | renderer with stubbed Electron APIs | ![][experimental] |
+| Any program plus your own installed Windows 9x/DOS disk image (`--guest`) | v86 or [DOSBox-X](https://dosbox-x.com), program on drive D: | ![][experimental] |
 | 64-bit Windows, 64-bit/ARM Linux GUI apps | **stream**: a Docker project that runs it natively and streams it with [Selkies](https://github.com/selkies-project/selkies) | ![][experimental] |
-| Android `.apk`, iOS `.ipa`, macOS apps | not supported (the scanner explains why) | – |
+| Android `.apk` | **stream**: an Android 14 emulator ([docker-android](https://github.com/budtmo/docker-android)) streamed over noVNC | ![][experimental] |
+| Anything, rewritten as real web code | **`waa rebuild`**: a Claude agent reads the program, screenshots it running and writes a web version | ![][experimental] |
+| iOS `.ipa`, macOS apps | not supported (the scanner explains why) | – |
 
 Every runtime is pinned to an exact version and checked against a hash before use (see
 [`src/runtimes/registry.ts`](src/runtimes/registry.ts)). The details and limits of each backend are in
@@ -121,7 +124,8 @@ Every runtime is pinned to an exact version and checked against a hash before us
 
 > [!NOTE]
 > The Windows backend boots Wine on an emulated CPU, so the first start takes 10–60 seconds. Programs that need
-> OpenGL or Direct3D, 64-bit programs and .NET programs don't run in the browser build; use `--backend stream` for those.
+> OpenGL or Direct3D, 64-bit programs and .NET programs don't run in the browser build; use `--backend stream` for those,
+> or `--guest win98.img --guest-engine dosboxX` for Windows 9x games that need DirectX or 3dfx.
 
 <div align="right">
 
@@ -200,6 +204,62 @@ waa publish keen.zip --to server --server …                 # build and publis
 
 GitHub Pages can't send custom headers. Bundles that need cross-origin isolation (Linux programs, threaded
 Boxedwine) get it from their service worker, which reloads the page once on the first visit.
+
+</details>
+
+<details>
+<summary><b>4. Check:</b> record what the original does and replay it against any build</summary>
+
+```bash
+waa record out/keen -o keen.json                 # use the app in Chrome; F2 marks a snapshot
+waa check out/keen -s keen.json --update         # save the screens as baselines
+waa check out/keen -s keen.json                  # later: replay, diff, fail on changes (report.html)
+waa compare out/keen rebuild/keen/bundle -s keen.json --min 0.8   # original vs rebuild
+```
+
+A scenario is JSON: `start`, `sleep`, `waitFor`, `click`, `move`, `type`, `key` and `snapshot` steps. Checks run in
+headless Chrome (SwiftShader by default, `--gpu` for the GPU) and work in CI.
+
+</details>
+
+<details>
+<summary><b>5. Saves:</b> keep progress and move it between devices</summary>
+
+DOS programs (every file they change), Flash movies (their SharedObjects) and PC images (the whole machine state)
+save automatically in the browser. The **Saves** button in the player downloads a `.waasave` file, loads one, or
+turns on **sync**: apps published to a `waa serve` server get a sync code (`ABCDE-FGHIJ-KLMNO-PQRST`) that carries
+the save to another browser or device. Enter the code there and the game continues where it was left.
+
+</details>
+
+<details>
+<summary><b>6. Guest OS:</b> run programs inside your own Windows 98</summary>
+
+```bash
+waa build game.zip --guest win98.img                        # v86: streams the disk, saves the whole machine
+waa build game.zip --guest win98.img --guest-engine dosboxX # DOSBox-X: Pentium MMX, S3, DirectX/3dfx-era games
+```
+
+The program's files become a CD-ROM (ISO 9660 + Joliet) that the guest sees as drive D:. You supply the
+operating system image and its license; webapp-anything never ships one.
+
+</details>
+
+<details>
+<summary><b>7. AI rebuild:</b> rewrite the program as a native web app</summary>
+
+```bash
+export ANTHROPIC_API_KEY=…
+waa rebuild WINMINE.EXE                                    # → rebuild/winmine/{source,bundle}
+waa rebuild game.exe --mcp "rea=npx -y rea-mcp" --notes "keep the original keyboard layout"
+```
+
+A Claude agent (`claude-opus-5-5` by default) lists the program's files, decodes its menus, dialogs and string
+tables, reads strings and hex, runs the original in its emulator and screenshots it, writes HTML/CSS/JS, then
+screenshots its own build next to the original and fixes the differences. `--mcp` hands it the tools of any
+stdio MCP server, such as a reverse-engineering server like [REA](https://github.com/morluto/rea). Writes stay
+inside the output folder. The run asks before it starts because the API usage is billed to your key; it uses
+adaptive thinking, prompt caching and the API's server-side model fallback (`--no-fallbacks` turns that off).
 
 </details>
 
@@ -320,13 +380,16 @@ personal and open-source use; commercial use needs a license from Leaning Techno
 ## 🗺 Roadmap
 
 - [x] Scanner for DOS, Windows, Linux, macOS, Java, Flash, disk images, Electron, web, Android and iOS inputs
-- [x] Nine backends, pinned runtimes, offline PWA bundles
+- [x] Ten backends, pinned runtimes, offline PWA bundles
 - [x] Publishing to a self-hosted server, GitHub Pages or any static host
-- [ ] **AI rebuild backend:** when nothing can run a program, explore it with an agent (for example through
-      [REA](https://github.com/morluto/rea)'s MCP tools) and write a real web reimplementation
-- [ ] Behaviour checks: record input and screens in the original and replay them against the web build
-- [ ] Android through a streamed emulator; Windows 9x guests through DOSBox-X images
-- [ ] Saved-game sync between devices
+- [x] **AI rebuild:** `waa rebuild` explores a program with an agent (optionally through MCP tools such as
+      [REA](https://github.com/morluto/rea)'s) and writes a real web reimplementation
+- [x] Behaviour checks: record input and screens in the original and replay them against the web build
+- [x] Android through a streamed emulator; Windows 9x guests through v86 or DOSBox-X images
+- [x] Saved-game sync between devices (DOS, Flash, PC images)
+- [ ] Saves for Windows, Java and Linux programs
+- [ ] Android streaming over WebRTC (lower latency than noVNC)
+- [ ] `waa rebuild` from a `waa record` scenario, so the agent replays the same moments it is compared on
 
 ## 🛠 Development
 

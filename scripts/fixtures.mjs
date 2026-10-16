@@ -106,6 +106,47 @@ export function bootFloppy(
 
 // ---------------------------------------------------------------------------
 // Static 32-bit x86 Linux ELF: asks for a name and greets it.
+/**
+ * An unpartitioned 8 MB hard disk (16 cylinders, 16 heads, 63 sectors). It prints `message` at
+ * boot, or with `fill` switches to VGA mode 13h and paints the screen that palette colour.
+ */
+export function bootDisk(message = "Guest disk booted.", { fill } = {}) {
+  let sector = bootFloppy(message).subarray(0, 512);
+  if (fill !== undefined) {
+    sector = new Uint8Array(512);
+    sector.set([
+      0xb8,
+      0x13,
+      0x00, // mov ax, 0013h
+      0xcd,
+      0x10, // int 10h
+      0xb8,
+      0x00,
+      0xa0, // mov ax, 0A000h
+      0x8e,
+      0xc0, // mov es, ax
+      0x31,
+      0xff, // xor di, di
+      0xb0,
+      fill, // mov al, fill
+      0xb9,
+      0x00,
+      0xfa, // mov cx, 64000
+      0xfc, // cld
+      0xf3,
+      0xaa, // rep stosb
+      0xf4, // .done: hlt
+      0xeb,
+      0xfd, // jmp .done
+    ]);
+    sector[510] = 0x55;
+    sector[511] = 0xaa;
+  }
+  const disk = new Uint8Array(16 * 16 * 63 * 512);
+  disk.set(sector, 0);
+  return disk;
+}
+
 export function linuxHello() {
   const base = 0x08048000;
   const codeOff = 84;
@@ -291,6 +332,7 @@ export function peExe({
   dotnet = false,
   imports = ["kernel32.dll", "user32.dll"],
   marker,
+  resources,
 } = {}) {
   const pe32plus = machine === 0x8664 || machine === 0xaa64;
   const lfanew = 0x80;
@@ -299,7 +341,11 @@ export function peExe({
   const fileAlign = 0x200;
   const secRaw = 0x400;
   const secRva = 0x1000;
-  const size = secRaw + 0x400;
+  const rsrcRva = 0x2000;
+  const rsrc = resources ? resourceSection(resources, rsrcRva) : undefined;
+  const rsrcRaw = secRaw + 0x400;
+  const rsrcSize = rsrc ? Math.ceil(rsrc.length / fileAlign) * fileAlign : 0;
+  const size = secRaw + 0x400 + rsrcSize;
   const out = new Uint8Array(size + (marker ? 64 : 0));
   const v = new DataView(out.buffer);
   out.set(bytes("MZ"), 0);
@@ -308,7 +354,7 @@ export function peExe({
   out.set(bytes("PE\0\0"), lfanew);
   const coff = lfanew + 4;
   v.setUint16(coff, machine, true);
-  v.setUint16(coff + 2, 1, true);
+  v.setUint16(coff + 2, rsrc ? 2 : 1, true);
   v.setUint16(coff + 16, optSize, true);
   v.setUint16(coff + 18, 0x0102 | (dll ? 0x2000 : 0), true);
   const opt = coff + 20;
@@ -341,8 +387,162 @@ export function peExe({
     out.set(bytes(name, [0]), secRaw + nameAt);
     nameAt += name.length + 1;
   });
+  if (rsrc) {
+    v.setUint32(dirs + 16, rsrcRva, true);
+    v.setUint32(dirs + 20, rsrc.length, true);
+    const sec = secTable + 40;
+    out.set(bytes(".rsrc\0\0\0"), sec);
+    v.setUint32(sec + 8, rsrc.length, true);
+    v.setUint32(sec + 12, rsrcRva, true);
+    v.setUint32(sec + 16, rsrcSize, true);
+    v.setUint32(sec + 20, rsrcRaw, true);
+    out.set(rsrc, rsrcRaw);
+  }
   if (marker) out.set(bytes(marker), size);
   return out;
+}
+
+const utf16z = (str) => {
+  const out = new Uint8Array(str.length * 2 + 2);
+  for (let i = 0; i < str.length; i++) new DataView(out.buffer).setUint16(i * 2, str.charCodeAt(i), true);
+  return out;
+};
+const le16 = (...vals) => {
+  const out = new Uint8Array(vals.length * 2);
+  vals.forEach((x, i) => {
+    new DataView(out.buffer).setUint16(i * 2, x & 0xffff, true);
+  });
+  return out;
+};
+const le32 = (...vals) => {
+  const out = new Uint8Array(vals.length * 4);
+  vals.forEach((x, i) => {
+    new DataView(out.buffer).setUint32(i * 4, x >>> 0, true);
+  });
+  return out;
+};
+const align4 = (parts) => {
+  const data = bytes(...parts);
+  const out = new Uint8Array(Math.ceil(data.length / 4) * 4);
+  out.set(data);
+  return out;
+};
+
+/** A .rsrc section (type → id → language 1033) for `entries` = [{ type, id, data }], placed at `rva`. */
+function resourceSection(entries, rva) {
+  const types = [...new Set(entries.map((e) => e.type))].sort((a, b) => a - b);
+  const byType = types.map((t) => entries.filter((e) => e.type === t).sort((a, b) => a.id - b.id));
+  const dirSize = (n) => 16 + n * 8;
+  let at = dirSize(types.length);
+  const typeDirAt = byType.map((list) => {
+    const o = at;
+    at += dirSize(list.length);
+    return o;
+  });
+  const langDirAt = entries.map(() => {
+    const o = at;
+    at += dirSize(1);
+    return o;
+  });
+  const dataEntryAt = entries.map(() => {
+    const o = at;
+    at += 16;
+    return o;
+  });
+  const dataAt = entries.map((e) => {
+    const o = at;
+    at += Math.ceil(e.data.length / 4) * 4;
+    return o;
+  });
+  const out = new Uint8Array(at);
+  const v = new DataView(out.buffer);
+  const dir = (o, n) => v.setUint16(o + 14, n, true);
+  dir(0, types.length);
+  types.forEach((t, ti) => {
+    v.setUint32(16 + ti * 8, t, true);
+    v.setUint32(20 + ti * 8, 0x80000000 | typeDirAt[ti], true);
+    dir(typeDirAt[ti], byType[ti].length);
+    byType[ti].forEach((e, ei) => {
+      const k = entries.indexOf(e);
+      v.setUint32(typeDirAt[ti] + 16 + ei * 8, e.id, true);
+      v.setUint32(typeDirAt[ti] + 20 + ei * 8, 0x80000000 | langDirAt[k], true);
+      dir(langDirAt[k], 1);
+      v.setUint32(langDirAt[k] + 16, 1033, true);
+      v.setUint32(langDirAt[k] + 20, dataEntryAt[k], true);
+      v.setUint32(dataEntryAt[k], rva + dataAt[k], true);
+      v.setUint32(dataEntryAt[k] + 4, e.data.length, true);
+      out.set(e.data, dataAt[k]);
+    });
+  });
+  return out;
+}
+
+/** RT_STRING block `block` (strings (block-1)*16 … +15); `strings` maps index 0–15 to text. */
+export function rcStringTable(strings) {
+  const parts = [];
+  for (let i = 0; i < 16; i++) {
+    const str = strings[i] ?? "";
+    parts.push(le16(str.length), utf16z(str).subarray(0, str.length * 2));
+  }
+  return bytes(...parts);
+}
+
+/** RT_MENU (standard template): items are { text, id } or { text, items: [...] } popups. */
+export function rcMenu(items) {
+  const encode = (list) =>
+    list.flatMap((item, i) => {
+      const last = i === list.length - 1 ? 0x80 : 0;
+      if (item.items) return [le16(0x10 | last), utf16z(item.text), ...encode(item.items)];
+      return [le16(last), le16(item.id), utf16z(item.text)];
+    });
+  return bytes(le16(0, 0), ...encode(items));
+}
+
+/** RT_DIALOG (DLGTEMPLATE with DS_SETFONT): controls are { cls: 0x80–0x85, text, id, x, y, cx, cy }. */
+export function rcDialog({ caption, x = 0, y = 0, cx = 200, cy = 100, controls = [] }) {
+  const parts = [
+    align4([
+      le32(0x80c800c0, 0),
+      le16(controls.length, x, y, cx, cy),
+      le16(0, 0),
+      utf16z(caption),
+      le16(8),
+      utf16z("MS Sans Serif"),
+    ]),
+  ];
+  for (const c of controls) {
+    parts.push(
+      align4([
+        le32(0x50010000, 0),
+        le16(c.x, c.y, c.cx, c.cy, c.id),
+        le16(0xffff, c.cls),
+        utf16z(c.text),
+        le16(0),
+      ]),
+    );
+  }
+  return bytes(...parts);
+}
+
+/** RT_VERSION with a StringFileInfo block holding `strings`. */
+export function rcVersion(strings) {
+  const node = (key, value, children = [], type = 1) => {
+    const valueBytes = typeof value === "string" ? utf16z(value) : value;
+    const head = align4([le16(0, valueBytes.length / (type === 1 ? 2 : 1), type), utf16z(key)]);
+    const body = align4([valueBytes]);
+    const kids = bytes(...children);
+    const out = bytes(head, body, kids);
+    new DataView(out.buffer).setUint16(0, out.length, true);
+    return out;
+  };
+  const table = node(
+    "040904b0",
+    new Uint8Array(0),
+    Object.entries(strings).map(([k, val]) => node(k, val)),
+  );
+  const sfi = node("StringFileInfo", new Uint8Array(0), [table]);
+  const fixed = le32(0xfeef04bd, 0x10000, 0x10000, 0, 0x10000, 0, 0x3f, 0, 4, 1, 0, 0, 0);
+  return node("VS_VERSION_INFO", fixed, [sfi], 0);
 }
 
 export function neExe({ os = 2 } = {}) {
@@ -397,12 +597,145 @@ export function jar({ mainClass = "hello.Main", major = 52, swing = true } = {})
   });
 }
 
-export function apk() {
-  return zipSync({
-    "AndroidManifest.xml": new Uint8Array([3, 0, 8, 0]),
+const ANDROID_NS = "http://schemas.android.com/apk/res/android";
+const ANDROID_ATTRS = {
+  name: 0x01010003,
+  versionCode: 0x0101021b,
+  versionName: 0x0101021c,
+  minSdkVersion: 0x0101020c,
+  targetSdkVersion: 0x01010270,
+};
+
+/**
+ * Compile an element tree ({ name, attrs: { key: value }, children }) to Android binary XML, as aapt
+ * does. Attributes named in ANDROID_ATTRS get the android: namespace; `stripNames` blanks their
+ * names in the string pool the way obfuscators do, leaving only the resource map.
+ */
+export function axml(root, { stripNames = false } = {}) {
+  const strings = Object.keys(ANDROID_ATTRS);
+  const idx = (str) => {
+    let i = strings.indexOf(str);
+    if (i < 0) i = strings.push(str) - 1;
+    return i;
+  };
+  const nsPrefix = idx("android");
+  const nsUri = idx(ANDROID_NS);
+  const chunk = (type, headerSize, body) => {
+    const out = new Uint8Array(8 + body.length);
+    const v = new DataView(out.buffer);
+    v.setUint16(0, type, true);
+    v.setUint16(2, headerSize, true);
+    v.setUint32(4, out.length, true);
+    out.set(body, 8);
+    return out;
+  };
+  const words = (...vals) => {
+    const out = new Uint8Array(vals.length * 4);
+    const v = new DataView(out.buffer);
+    vals.forEach((x, i) => {
+      v.setUint32(i * 4, x >>> 0, true);
+    });
+    return out;
+  };
+  const NONE = 0xffffffff;
+  const nodes = [];
+  const walk = (el) => {
+    const attrs = Object.entries(el.attrs ?? {});
+    const body = new Uint8Array(8 + 20 + attrs.length * 20);
+    const v = new DataView(body.buffer);
+    v.setUint32(0, 1, true); // line
+    v.setUint32(4, NONE, true); // comment
+    v.setUint32(8, NONE, true); // element namespace
+    v.setUint32(12, idx(el.name), true);
+    v.setUint16(16, 20, true); // attributeStart
+    v.setUint16(18, 20, true); // attributeSize
+    v.setUint16(20, attrs.length, true);
+    attrs.forEach(([key, value], i) => {
+      const a = 28 + i * 20;
+      v.setUint32(a, key in ANDROID_ATTRS ? nsUri : NONE, true);
+      v.setUint32(a + 4, idx(key), true);
+      v.setUint16(a + 12, 8, true);
+      if (typeof value === "string") {
+        v.setUint32(a + 8, idx(value), true);
+        v.setUint8(a + 15, 0x03);
+        v.setUint32(a + 16, idx(value), true);
+      } else {
+        v.setUint32(a + 8, NONE, true);
+        v.setUint8(a + 15, typeof value === "boolean" ? 0x12 : 0x10);
+        v.setUint32(a + 16, typeof value === "boolean" ? (value ? NONE : 0) : value, true);
+      }
+    });
+    nodes.push(chunk(0x0102, 16, body));
+    for (const c of el.children ?? []) walk(c);
+    nodes.push(chunk(0x0103, 16, words(1, NONE, NONE, idx(el.name))));
+  };
+  walk(root);
+  const startNs = chunk(0x0100, 16, words(1, NONE, nsPrefix, nsUri));
+  const endNs = chunk(0x0101, 16, words(1, NONE, nsPrefix, nsUri));
+
+  const pool = strings.map((str, i) => (stripNames && i < Object.keys(ANDROID_ATTRS).length ? "" : str));
+  const encoded = pool.map((str) => {
+    const out = new Uint8Array(2 + str.length * 2 + 2);
+    const v = new DataView(out.buffer);
+    v.setUint16(0, str.length, true);
+    for (let i = 0; i < str.length; i++) v.setUint16(2 + i * 2, str.charCodeAt(i), true);
+    return out;
+  });
+  let offset = 0;
+  const offsets = encoded.map((e) => {
+    const o = offset;
+    offset += e.length;
+    return o;
+  });
+  const data = bytes(...encoded);
+  const padded = new Uint8Array(Math.ceil(data.length / 4) * 4);
+  padded.set(data);
+  const poolHeader = words(pool.length, 0, 0, 28 + pool.length * 4, 0);
+  const stringPool = chunk(0x0001, 28, bytes(poolHeader, words(...offsets), padded));
+  const resourceMap = chunk(0x0180, 8, words(...Object.values(ANDROID_ATTRS)));
+  return chunk(0x0003, 8, bytes(stringPool, resourceMap, startNs, ...nodes, endNs));
+}
+
+/** A manifest for package `pkg` with one launcher activity. */
+export function androidManifest({
+  pkg = "com.example.hello",
+  activity = ".MainActivity",
+  stripNames = false,
+} = {}) {
+  const action = { name: "action", attrs: { name: "android.intent.action.MAIN" } };
+  const category = { name: "category", attrs: { name: "android.intent.category.LAUNCHER" } };
+  return axml(
+    {
+      name: "manifest",
+      attrs: { versionCode: 7, versionName: "1.2.3", package: pkg },
+      children: [
+        { name: "uses-sdk", attrs: { minSdkVersion: 21, targetSdkVersion: 34 } },
+        {
+          name: "application",
+          attrs: { label: "Hello" },
+          children: [
+            { name: "activity", attrs: { name: ".SettingsActivity" } },
+            {
+              name: "activity",
+              attrs: { name: activity },
+              children: [{ name: "intent-filter", children: [action, category] }],
+            },
+          ],
+        },
+      ],
+    },
+    { stripNames },
+  );
+}
+
+export function apk({ pkg, abis = [], stripNames = false } = {}) {
+  const files = {
+    "AndroidManifest.xml": androidManifest({ pkg, stripNames }),
     "classes.dex": bytes("dex\n035\0"),
     "resources.arsc": new Uint8Array(4),
-  });
+  };
+  for (const abi of abis) files[`lib/${abi}/libnative.so`] = elfDynamic({ bits: 64 });
+  return zipSync(files);
 }
 
 // ---------------------------------------------------------------------------
@@ -626,3 +959,170 @@ export const webIndex = `<!doctype html>
 </body>
 </html>
 `;
+
+// ---------------------------------------------------------------------------
+// Tiny two-pass assembler: byte arrays plus {label} marks and {abs|rel8: label} references.
+function assemble(origin, parts) {
+  const labels = {};
+  const size = (p) => (typeof p === "number" ? 1 : p.label !== undefined ? 0 : p.abs !== undefined ? 2 : 1);
+  let at = origin;
+  for (const p of parts) {
+    if (p.label !== undefined) labels[p.label] = at;
+    at += size(p);
+  }
+  const out = [];
+  at = origin;
+  for (const p of parts) {
+    if (typeof p === "number") out.push(p);
+    else if (p.abs !== undefined) out.push(...u16(labels[p.abs]));
+    else if (p.rel8 !== undefined) {
+      const rel = labels[p.rel8] - (at + 1);
+      if (rel < -128 || rel > 127) throw new Error(`jump to ${p.rel8} out of range`);
+      out.push(rel & 0xff);
+    }
+    at += size(p);
+  }
+  return Uint8Array.from(out);
+}
+
+const text = (s) => [...enc.encode(s)];
+
+/**
+ * DOS .COM that keeps a run counter in COUNTER.DAT: it reads the byte, increments it, writes it
+ * back and prints "This DOS program has run NNN times." Used to test saved games.
+ */
+export function counterCom() {
+  const L = (label) => ({ label });
+  const A = (abs) => ({ abs });
+  const R = (rel8) => ({ rel8 });
+  return assemble(0x100, [
+    0xb8,
+    0x02,
+    0x3d, // mov ax, 3D02h  (open read/write)
+    0xba,
+    A("fname"), // mov dx, fname
+    0xcd,
+    0x21,
+    0x73,
+    R("opened"), // jnc opened
+    0xb4,
+    0x3c, // mov ah, 3Ch     (create)
+    0x31,
+    0xc9, // xor cx, cx
+    0xba,
+    A("fname"),
+    0xcd,
+    0x21,
+    0x72,
+    R("fail"), // jc fail
+    0xeb,
+    R("have"),
+    L("opened"),
+    0x89,
+    0xc3, // mov bx, ax
+    0xb4,
+    0x3f, // mov ah, 3Fh     (read 1 byte)
+    0xb9,
+    0x01,
+    0x00,
+    0xba,
+    A("count"),
+    0xcd,
+    0x21,
+    0x89,
+    0xd8, // mov ax, bx
+    L("have"),
+    0x89,
+    0xc3, // mov bx, ax      (handle)
+    0xfe,
+    0x06,
+    A("count"), // inc byte [count]
+    0xb8,
+    0x00,
+    0x42, // mov ax, 4200h  (seek to start)
+    0x31,
+    0xc9,
+    0x31,
+    0xd2,
+    0xcd,
+    0x21,
+    0xb4,
+    0x40, // mov ah, 40h     (write 1 byte)
+    0xb9,
+    0x01,
+    0x00,
+    0xba,
+    A("count"),
+    0xcd,
+    0x21,
+    0xb4,
+    0x3e, // mov ah, 3Eh     (close)
+    0xcd,
+    0x21,
+    0xa0,
+    A("count"), // mov al, [count]
+    0xb4,
+    0x00, // mov ah, 0
+    0xb3,
+    0x64, // mov bl, 100
+    0xf6,
+    0xf3, // div bl
+    0x04,
+    0x30, // add al, '0'
+    0xa2,
+    A("d0"), // mov [d0], al
+    0x8a,
+    0xc4, // mov al, ah
+    0xd4,
+    0x0a, // aam
+    0x05,
+    0x30,
+    0x30, // add ax, 3030h
+    0x88,
+    0x26,
+    A("d1"), // mov [d1], ah
+    0xa2,
+    A("d2"), // mov [d2], al
+    0xb4,
+    0x09,
+    0xba,
+    A("msg"),
+    0xcd,
+    0x21,
+    L("done"),
+    0xb4,
+    0x00, // wait for a key
+    0xcd,
+    0x16,
+    0xb8,
+    0x00,
+    0x4c,
+    0xcd,
+    0x21,
+    L("fail"),
+    0xb4,
+    0x09,
+    0xba,
+    A("err"),
+    0xcd,
+    0x21,
+    0xeb,
+    R("done"),
+    L("fname"),
+    ...text("COUNTER.DAT"),
+    0,
+    L("count"),
+    0,
+    L("msg"),
+    ...text("This DOS program has run "),
+    L("d0"),
+    0x30,
+    L("d1"),
+    0x30,
+    L("d2"),
+    0x30,
+    ...text(" times.\r\nIts counter is saved in COUNTER.DAT.\r\n$"),
+    L("err"),
+    ...text("Could not open COUNTER.DAT.$"),
+  ]);
+}

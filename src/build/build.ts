@@ -25,6 +25,9 @@ export interface BuildRequest extends ScanOptions {
   windows?: Partial<BuildOptions["windows"]>;
   java?: Partial<BuildOptions["java"]>;
   disk?: Partial<BuildOptions["disk"]>;
+  /** Boot this OS image (hard disk or CD) with the input on a CD-ROM drive. */
+  guest?: string;
+  guestEngine?: "v86" | "dosboxX";
 }
 
 export interface BuildResult {
@@ -64,7 +67,18 @@ export async function buildApp(
   const log = deps.log ?? silentLogger;
   const { report: scan, tree, inputPath } = await scanInput(req.input, req);
   try {
-    const plan = planFor(scan, req.backend);
+    const plan: Plan = req.guest
+      ? {
+          chosen: {
+            backend: "guest",
+            score: 100,
+            stability: "experimental",
+            reasons: ["Boots the guest OS image with the program on a CD-ROM drive."],
+            warnings: [],
+          },
+          candidates: [],
+        }
+      : planFor(scan, req.backend);
     if (!plan.chosen) throw new UserError(plan.unsupported ?? "No backend can run this input.");
     const backend = getBackend(plan.chosen.backend)!;
     const title = (req.title ?? defaultTitle(scan)).slice(0, 120);
@@ -80,6 +94,7 @@ export async function buildApp(
       windows: { threads: false, wine: "6", ...defined(req.windows) },
       java: { ...defined(req.java) },
       disk: { ...defined(req.disk) },
+      ...(req.guest ? { guest: { image: path.resolve(req.guest), engine: req.guestEngine ?? "v86" } } : {}),
     };
     const out = new BundleWriter(path.resolve(req.outDir));
     await out.init({ force: req.force, sourceName: scan.input.name });

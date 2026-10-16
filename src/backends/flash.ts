@@ -57,6 +57,26 @@ export const flashBackend: Backend = {
         data,
         boot: `
 const { data } = WAA.config;
+// Ruffle keeps SharedObjects in localStorage as "<host>/<movie path>/<name>". Saves store them
+// relative to this bundle so they move between hosts and devices.
+const moviePath = new URL(data.movie, location.href).pathname;
+const bundleDir = location.pathname.replace(/[^/]*$/, "");
+const prefix = location.hostname + bundleDir;
+const isOurs = (k) => k.startsWith(prefix) && moviePath.includes(k.split("/").slice(1, -1).join("/"));
+WAA.saves.register({
+  async capture() {
+    const entries = {};
+    for (const k of Object.keys(localStorage)) if (isOurs(k)) entries[k.slice(prefix.length)] = localStorage.getItem(k);
+    return Object.keys(entries).length ? new TextEncoder().encode(JSON.stringify(entries)) : null;
+  },
+  async restore(bytes) {
+    const entries = JSON.parse(new TextDecoder().decode(bytes));
+    for (const [k, v] of Object.entries(entries)) if (typeof v === "string") localStorage.setItem(prefix + k, v);
+  },
+  async clear() {
+    for (const k of Object.keys(localStorage)) if (isOurs(k)) localStorage.removeItem(k);
+  },
+});
 try {
   await WAA.start();
   WAA.status("Loading Flash player…");

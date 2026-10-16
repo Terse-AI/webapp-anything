@@ -1,6 +1,6 @@
 {
   "name": "webapp-anything",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Turn desktop software (DOS and Windows programs, Java apps, Flash movies, Linux binaries, disk images) into web apps you can publish with one command.",
   "keywords": [
     "webassembly",
@@ -55,6 +55,7 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.130.0",
     "commander": "^14.0.3",
     "fflate": "^0.8.2"
   },

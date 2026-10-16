@@ -205,6 +205,7 @@ ${page.head ?? ""}
 <body data-backend="${escapeHtml(manifest.backend.id)}">
 <header class="waa-bar">
   <span class="waa-title">${title}</span>
+  <button class="waa-btn" id="waa-saves-btn" type="button" aria-label="Saved games" hidden>⤓<span class="waa-label">&nbsp;Saves</span></button>
   <button class="waa-btn" id="waa-info-btn" type="button" aria-label="About this app">ⓘ<span class="waa-label">&nbsp;About</span></button>
   <button class="waa-btn" id="waa-fullscreen" type="button" aria-label="Full screen">⛶<span class="waa-label">&nbsp;Full screen</span></button>
 </header>
@@ -233,6 +234,25 @@ ${page.stage}
   <h2>${title}</h2>
   <div id="waa-info-body">Loading…</div>
   <footer><span>Made with <a href="https://github.com/Terse-AI/webapp-anything" target="_blank" rel="noopener">webapp-anything</a></span><button class="waa-btn" id="waa-info-close" type="button">Close</button></footer>
+</dialog>
+<dialog class="waa-dialog" id="waa-saves">
+  <h2>Saved games</h2>
+  <p class="waa-sub" id="waa-saves-status"></p>
+  <div class="waa-row">
+    <button class="waa-btn" id="waa-save-now" type="button">Save now</button>
+    <button class="waa-btn" id="waa-save-download" type="button">Download save file</button>
+    <label class="waa-btn" for="waa-save-file">Load save file…</label>
+    <input id="waa-save-file" type="file" accept=".waasave" hidden>
+    <button class="waa-btn" id="waa-save-reset" type="button">Start fresh</button>
+  </div>
+  <section id="waa-sync" hidden>
+    <h3>Sync between devices</h3>
+    <p class="waa-sub">Enter the same code on another device to continue where you left off.</p>
+    <div class="waa-row"><code class="waa-code" id="waa-sync-code">not set up</code><button class="waa-btn" id="waa-sync-copy" type="button" hidden>Copy</button><button class="waa-btn" id="waa-sync-new" type="button">New code</button><button class="waa-btn" id="waa-sync-off" type="button" hidden>Turn off</button></div>
+    <div class="waa-row"><input class="waa-input" id="waa-sync-input" placeholder="Code from another device" autocomplete="off" spellcheck="false"><button class="waa-btn" id="waa-sync-connect" type="button">Connect</button></div>
+    <p class="waa-sub" id="waa-sync-note"></p>
+  </section>
+  <footer><span></span><button class="waa-btn" id="waa-saves-close" type="button">Close</button></footer>
 </dialog>
 <script id="waa-config" type="application/json">${inlineJson(config)}</script>
 <script src="waa/player.js"></script>

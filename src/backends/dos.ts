@@ -81,7 +81,6 @@ export const dosBackend: Backend = {
   },
   async build(ctx: BuildContext): Promise<BuildOutput> {
     const { scan, tree, out, options } = ctx;
-    const spec = VENDORED["js-dos"];
     const warnings: string[] = [];
     const bundleName = "app.jsdos";
 
@@ -132,52 +131,89 @@ export const dosBackend: Backend = {
       await out.write(`app/${bundleName}`, zipSync(files, { level: 6 }));
     }
 
-    let base: string;
-    let delivery: "vendored" | "cdn";
-    if (options.runtime === "cdn" && spec.cdn?.base) {
-      base = spec.cdn.base;
-      delivery = "cdn";
-    } else {
-      const rt = await ctx.runtimes.ensure("js-dos");
-      // DOSBox-X (Windows 9x capable) adds ~16 MB; only ship it when asked for.
-      const wantX = options.dos.engine === "dosboxX";
-      base = await out.addRuntime(rt, (f) => wantX || !f.startsWith("emulators/wdosbox-x"));
-      delivery = "vendored";
-    }
+    return jsdosOutput(ctx, `app/${bundleName}`, options.dos.engine, warnings);
+  },
+};
 
-    const data = {
-      bundle: `app/${bundleName}`,
-      base,
-      engine: options.dos.engine,
-    };
-    return {
-      type: "static",
-      runtimes: [
-        runtimeRef(spec, delivery, base, `https://github.com/caiiiycuk/js-dos/tree/v${spec.version}`),
-      ],
-      requirements: { crossOriginIsolation: false, network: delivery === "cdn" ? ["cdn.jsdelivr.net"] : [] },
-      notices: [],
-      warnings,
-      page: {
-        title: options.title,
-        autostart: options.autostart,
-        head: `<link rel="stylesheet" href="${base}js-dos.css">\n<style>#dos{width:100%;height:100%}</style>`,
-        stage: `<div id="dos"></div>`,
-        data,
-        boot: `
+/** The js-dos page for a bundle already written to `bundle`. Shared with the guest backend. */
+export async function jsdosOutput(
+  ctx: BuildContext,
+  bundle: string,
+  engine: "dosbox" | "dosboxX",
+  warnings: string[] = [],
+  notices: string[] = [],
+  /** Keep the files the program changes as the app's save (off for whole-disk guests). */
+  saves = true,
+): Promise<BuildOutput> {
+  const { out, options } = ctx;
+  const spec = VENDORED["js-dos"];
+  let base: string;
+  let delivery: "vendored" | "cdn";
+  if (options.runtime === "cdn" && spec.cdn?.base) {
+    base = spec.cdn.base;
+    delivery = "cdn";
+  } else {
+    const rt = await ctx.runtimes.ensure("js-dos");
+    // DOSBox-X (Windows 9x capable) adds ~16 MB; only ship it when asked for.
+    const wantX = engine === "dosboxX";
+    base = await out.addRuntime(rt, (f) => wantX || !f.startsWith("emulators/wdosbox-x"));
+    delivery = "vendored";
+  }
+
+  const data = {
+    bundle,
+    base,
+    engine,
+    saves,
+  };
+  return {
+    type: "static",
+    runtimes: [runtimeRef(spec, delivery, base, `https://github.com/caiiiycuk/js-dos/tree/v${spec.version}`)],
+    requirements: { crossOriginIsolation: false, network: delivery === "cdn" ? ["cdn.jsdelivr.net"] : [] },
+    notices,
+    warnings,
+    page: {
+      title: options.title,
+      autostart: options.autostart,
+      head: `<link rel="stylesheet" href="${base}js-dos.css">\n<style>#dos{width:100%;height:100%}</style>`,
+      stage: `<div id="dos"></div>`,
+      data,
+      boot: `
 const { data } = WAA.config;
+let props = null;
+// js-dos hands every file the program changed to fsChanges.push; keep them in the player's save slot.
+if (data.saves) WAA.saves.register({
+  async capture() {
+    if (props) await props.save();
+    const saved = await WAA.saves.local.read();
+    return saved ? saved.bytes : null;
+  },
+  restore: (bytes) => WAA.saves.local.write(bytes, { fromSync: true }),
+  clear: () => WAA.saves.local.clear(),
+  flush: () => (props ? props.save() : undefined),
+});
 try {
   await WAA.start();
   WAA.status("Loading DOSBox…");
   await WAA.loadScript(new URL(data.base + "js-dos.js", location.href).href);
-  const props = Dos(document.getElementById("dos"), {
+  props = Dos(document.getElementById("dos"), {
     url: new URL(data.bundle, location.href).href,
     pathPrefix: new URL(data.base + "emulators/", location.href).href,
     backend: data.engine,
     backendLocked: true,
     autoStart: true,
+    autoSave: data.saves,
     theme: "dark",
     thinSidebar: true,
+    fsChanges: data.saves
+      ? {
+          pull: async () => (await WAA.saves.local.read())?.bytes ?? null,
+          push: async (_key, changes) => {
+            await WAA.saves.local.write(changes);
+          },
+          delete: () => WAA.saves.local.clear(),
+        }
+      : undefined,
     onEvent: (event) => {
       if (event === "ci-ready") WAA.ready();
     },
@@ -188,7 +224,6 @@ try {
   WAA.fail(err);
 }
 `,
-      },
-    };
-  },
-};
+    },
+  };
+}

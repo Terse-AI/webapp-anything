@@ -9,7 +9,8 @@ export type BackendId =
   | "disk"
   | "web"
   | "electron"
-  | "stream";
+  | "stream"
+  | "guest";
 
 export interface RuntimeRef {
   id: string;

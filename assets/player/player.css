@@ -272,3 +272,45 @@ dialog.waa-dialog::backdrop {
     display: none;
   }
 }
+
+.waa-dialog .waa-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.waa-dialog label.waa-btn {
+  display: inline-flex;
+  align-items: center;
+}
+
+.waa-code {
+  font:
+    13px ui-monospace,
+    Menlo,
+    Consolas,
+    monospace;
+  background: var(--waa-bg);
+  border: 1px solid var(--waa-line);
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+
+.waa-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--waa-line);
+  background: var(--waa-bg);
+  color: var(--waa-text);
+  font:
+    13px ui-monospace,
+    Menlo,
+    Consolas,
+    monospace;
+  text-transform: uppercase;
+}

@@ -48,6 +48,17 @@ export interface JavaInfo {
   javafx?: boolean;
 }
 
+export interface AndroidInfo {
+  package?: string;
+  versionName?: string;
+  versionCode?: number;
+  minSdk?: number;
+  targetSdk?: number;
+  launcher?: string;
+  /** Native code ABIs under lib/ (empty for pure Java/Kotlin apps). */
+  abis: string[];
+}
+
 export interface ElectronInfo {
   /** Path inside the tree of the extracted app root (where package.json lives). */
   appRoot: string;
@@ -78,6 +89,7 @@ export interface ScanReport {
   disk?: DiskImageInfo;
   java?: JavaInfo;
   electron?: ElectronInfo;
+  android?: AndroidInfo;
   web?: { index: string };
   script?: { interpreter: string };
   /** Every runnable thing we found, best first. */

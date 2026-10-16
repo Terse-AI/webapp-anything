@@ -208,18 +208,33 @@ describe("server", () => {
 
   it("explains unsupported uploads", async () => {
     const base = await start();
-    const up = (await (await upload(base, "app.apk", fx.apk())).json()) as {
+    const ipa = zipSync({ "Payload/Hello.app/Hello": strToU8("x") });
+    const up = (await (await upload(base, "app.ipa", ipa)).json()) as {
       upload: string;
       plan: { unsupported: string };
     };
-    expect(up.plan.unsupported).toMatch(/Android/);
+    expect(up.plan.unsupported).toMatch(/iOS/);
     const res = await fetch(`${base}/api/apps`, {
       method: "POST",
       headers: { ...auth, "Content-Type": "application/json" },
       body: JSON.stringify({ upload: up.upload }),
     });
     expect(res.status).toBe(422);
-    expect(((await res.json()) as { error: string }).error).toMatch(/Android/);
+    expect(((await res.json()) as { error: string }).error).toMatch(/iOS/);
+
+    // Android apps stream from an emulator container, which a static host cannot run.
+    const apk = (await (await upload(base, "app.apk", fx.apk())).json()) as {
+      upload: string;
+      plan: { chosen: { backend: string } };
+    };
+    expect(apk.plan.chosen.backend).toBe("stream");
+    const publish = await fetch(`${base}/api/apps`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ upload: apk.upload }),
+    });
+    expect(publish.status).toBe(422);
+    expect(((await publish.json()) as { error: string }).error).toMatch(/container backend/);
   });
 
   it("enforces the upload size limit", async () => {

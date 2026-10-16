@@ -4,6 +4,7 @@ import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { readAsar } from "../formats/asar.js";
+import { readAndroidManifest } from "../formats/axml.js";
 import { describeExecutable, type ExecutableInfo, parseExecutable } from "../formats/executables.js";
 import { classFileJavaVersion, parseManifest } from "../formats/java.js";
 import { isSwf, parseDiskImage, parseSwf } from "../formats/media.js";
@@ -384,7 +385,21 @@ async function classifyTree(tree: FileTree, report: ScanReport, entryOverride?: 
   }
   if (has("AndroidManifest.xml") && tree.entries.some((e) => /^classes\d*\.dex$/.test(e.path))) {
     report.kind = "android-app";
-    report.summary = `Android app (APK): ${tree.name}`;
+    const abis = [
+      ...new Set(
+        tree.entries
+          .map((e) => /^lib\/([^/]+)\/[^/]+\.so$/.exec(e.path)?.[1])
+          .filter((a): a is string => !!a),
+      ),
+    ].sort();
+    report.android = { abis };
+    try {
+      Object.assign(report.android, readAndroidManifest(await tree.read("AndroidManifest.xml")));
+    } catch (err) {
+      report.warnings.push(`Could not read AndroidManifest.xml: ${(err as Error).message}`);
+    }
+    const { package: pkg, versionName } = report.android;
+    report.summary = `Android app (APK): ${pkg ?? tree.name}${versionName ? ` ${versionName}` : ""}`;
     return;
   }
   if (tree.entries.some((e) => /^Payload\/[^/]+\.app\//.test(e.path))) {

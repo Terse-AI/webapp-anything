@@ -42,6 +42,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+        env:
+          # Real-browser tests run once, in the browser job below.
+          WAA_SKIP_BROWSER_TESTS: "1"
       - name: CLI smoke test
         shell: bash
         run: |
@@ -53,6 +56,26 @@ jobs:
           done
           node dist/cli.js build examples/hello-web --out out/web
           test -f out/web/waa.json
+
+  browser:
+    name: browser tests (headless Chrome)
+    runs-on: ubuntu-latest
+    env:
+      WAA_CACHE_DIR: ${{ github.workspace }}/.waa/cache
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Allow Chrome's sandbox (Ubuntu restricts unprivileged user namespaces)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - uses: actions/cache@v6
+        with:
+          path: .waa/cache
+          key: waa-runtimes-${{ hashFiles('src/runtimes/registry.ts') }}
+      - run: npm ci
+      - run: npx vitest run --no-file-parallelism test/check.test.ts test/saves.test.ts test/guest.test.ts test/rebuild.test.ts
 
   docker:
     runs-on: ubuntu-latest

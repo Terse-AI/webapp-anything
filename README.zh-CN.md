@@ -71,11 +71,14 @@ DOS / Windows 程序 · Java 应用 · Flash 动画 · Linux 程序 · 可启动
 | 32 位 x86 Linux 终端程序、脚本 | CheerpX + xterm.js | ![][experimental] |
 | 含 `index.html` 的文件夹或压缩包 | 原样发布 | ![][stable] |
 | Electron 应用 | 渲染进程 + Electron API 替身 | ![][experimental] |
+| 任意程序 + 你自己装好的 Windows 9x/DOS 硬盘镜像（`--guest`） | v86 或 DOSBox-X，程序在 D: 光驱里 | ![][experimental] |
 | 64 位 Windows、64 位/ARM Linux 图形程序 | **stream**：生成 Docker 项目，在服务器上原生运行并用 Selkies 推流 | ![][experimental] |
-| Android、iOS、macOS | 不支持（扫描结果会说明原因） | – |
+| Android `.apk` | **stream**：Android 14 模拟器（docker-android），通过 noVNC 推流 | ![][experimental] |
+| 任何程序，重写成真正的网页代码 | **`waa rebuild`**：Claude agent 读程序、截取原程序运行画面，写出网页版 | ![][experimental] |
+| iOS、macOS | 不支持（扫描结果会说明原因） | – |
 
 > [!NOTE]
-> Windows 后端要在模拟的 CPU 上启动 Wine，首次打开需要 10–60 秒。需要 OpenGL/Direct3D 的程序、64 位程序和 .NET 程序在浏览器版里跑不了，可以改用 `--backend stream`。
+> Windows 后端要在模拟的 CPU 上启动 Wine，首次打开需要 10–60 秒。需要 OpenGL/Direct3D 的程序、64 位程序和 .NET 程序在浏览器版里跑不了，可以改用 `--backend stream`；需要 DirectX/3dfx 的 Windows 9x 游戏可以用 `--guest win98.img --guest-engine dosboxX`。
 
 ## 🚀 快速开始
 
@@ -86,6 +89,22 @@ npx webapp-anything build game.zip                                  # → out/ga
 npx webapp-anything preview out/game                                # → http://127.0.0.1:4173
 npx webapp-anything publish out/game --to github-pages --repo you/games
 ```
+
+```bash
+waa record out/game -o game.json              # 在 Chrome 里操作一遍，F2 标记截图点
+waa check out/game -s game.json --update      # 保存为基准画面；之后去掉 --update 回放对比
+waa build game.zip --guest win98.img          # 在你自己的 Windows 98 里运行（程序在 D:）
+waa rebuild WINMINE.EXE                       # AI 重写成原生网页版（需要 ANTHROPIC_API_KEY，按用量计费）
+```
+
+**存档**：DOS 程序改过的文件、Flash 的 SharedObject、PC 镜像的整机状态都会自动保存在浏览器里。播放器的 **Saves**
+按钮可以下载/导入 `.waasave` 存档文件；发布到 `waa serve` 的应用还能开启**同步**，用同步码
+（`ABCDE-FGHIJ-KLMNO-PQRST`）在另一台设备上接着玩。
+
+**AI 重写**：`waa rebuild` 让 Claude agent（默认 `claude-opus-5-5`）列出文件、解析菜单/对话框/字符串表、读字符串和十六进制、
+在模拟器里运行原程序并截图，然后写 HTML/CSS/JS，再把自己的版本和原版并排截图对比、逐步修正。`--mcp` 可以接入任何 stdio MCP
+服务器（比如 [REA](https://github.com/morluto/rea) 这类逆向工具）。所有写入都限制在输出目录里；开始前会先确认，因为 API
+用量按你的 key 计费。默认开启 API 的服务端模型回退（`--no-fallbacks` 关闭）。
 
 ## ⚙️ 工作原理
 

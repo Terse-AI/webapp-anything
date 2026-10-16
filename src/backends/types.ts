@@ -29,6 +29,8 @@ export interface BuildOptions {
   windows: { threads: boolean; wine: "6" | "11"; resolution?: string };
   java: { mainClass?: string; version?: 8 | 11 | 17 };
   disk: { memoryMB?: number };
+  /** Boot a user-supplied OS image with the program on a CD-ROM (guest backend). */
+  guest?: { image: string; engine: "v86" | "dosboxX" };
 }
 
 export interface BuildContext {

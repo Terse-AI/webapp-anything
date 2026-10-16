@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { strToU8, unzipSync, zipSync } from "fflate";
@@ -8,6 +9,15 @@ import { buildApp } from "../src/build/build.js";
 import { readBundleManifest } from "../src/build/bundle.js";
 import { readTar } from "../src/formats/tar.js";
 import { FakeRuntimes, tempDir, writeFileTemp, writeTree } from "./helpers.js";
+
+const dockerCompose = (() => {
+  try {
+    execFileSync("docker", ["compose", "version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
 
 let runtimes: FakeRuntimes;
 let outRoot: string;
@@ -235,6 +245,34 @@ describe("other backends", () => {
   });
 });
 
+describe("android", () => {
+  it("stream: runs an APK in an emulator and opens its launcher activity", async () => {
+    const { result, read, outDir } = await build(
+      await writeFileTemp("game.apk", fx.apk({ pkg: "com.acme.game" })),
+    );
+    expect(result.manifest.type).toBe("container");
+    expect(result.manifest.backend.id).toBe("stream");
+    const compose = (await read("compose.yaml")).toString();
+    expect(compose).toContain("image: budtmo/docker-android:emulator_14.0_v3.7.0-p1");
+    expect(compose).toContain("- /dev/kvm");
+    expect(compose).toContain("USER_BEHAVIOR_ANALYTICS=false");
+    const install = (await read("app/install.sh")).toString();
+    expect(install).toContain("install -r -g /waa/app.apk");
+    expect(install).toContain("shell am start -n 'com.acme.game/com.acme.game.MainActivity'");
+    expect((await read("app/app.apk")).length).toBeGreaterThan(100);
+    expect(await exists(path.join(outDir, "Dockerfile"))).toBe(false);
+
+    if (dockerCompose) {
+      const config = execFileSync("docker", ["compose", "config", "--format", "json"], {
+        cwd: outDir,
+      }).toString();
+      const services = JSON.parse(config).services;
+      expect(Object.keys(services).sort()).toEqual(["android", "install"]);
+      expect(services.install.entrypoint).toEqual(["/bin/bash", "/waa/install.sh"]);
+    }
+  });
+});
+
 describe("bundles", () => {
   it("writes a valid manifest and escapes the title", async () => {
     const { result, outDir, html } = await build(await writeFileTemp("x.com", fx.dosCom()), {
@@ -263,7 +301,11 @@ describe("bundles", () => {
   });
 
   it("fails clearly for inputs nothing can run", async () => {
-    await expect(build(await writeFileTemp("app.apk", fx.apk()))).rejects.toThrow(/Android/);
+    const ipa = zipSync({
+      "Payload/Hello.app/Hello": strToU8("x"),
+      "Payload/Hello.app/Info.plist": strToU8("x"),
+    });
+    await expect(build(await writeFileTemp("app.ipa", ipa))).rejects.toThrow(/iOS/);
     await expect(build(await writeFileTemp("x.zip", zipSync({ "a.txt": strToU8("a") })))).rejects.toThrow();
   });
 });

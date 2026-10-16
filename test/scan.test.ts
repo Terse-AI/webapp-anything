@@ -112,9 +112,19 @@ describe("archives and folders", () => {
     expect(jar.java).toMatchObject({ mainClass: "com.acme.Main", javaVersion: 11, swing: true });
     expect(planFor(jar).chosen?.backend).toBe("java");
 
-    const apk = await scan(await writeFileTemp("app.apk", fx.apk()));
+    const apk = await scan(
+      await writeFileTemp("app.apk", fx.apk({ pkg: "com.acme.game", abis: ["arm64-v8a"] })),
+    );
     expect(apk.kind).toBe("android-app");
-    expect(planFor(apk).unsupported).toMatch(/Android/);
+    expect(apk.summary).toBe("Android app (APK): com.acme.game 1.2.3");
+    expect(apk.android).toMatchObject({
+      package: "com.acme.game",
+      launcher: "com.acme.game.MainActivity",
+      abis: ["arm64-v8a"],
+    });
+    const apkPlan = planFor(apk);
+    expect(apkPlan.chosen?.backend).toBe("stream");
+    expect(apkPlan.chosen?.warnings.join(" ")).toMatch(/arm64-v8a/);
 
     const bundle = await scan(
       await writeFileTemp(

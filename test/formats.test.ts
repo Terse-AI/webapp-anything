@@ -2,9 +2,11 @@ import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import * as fx from "../scripts/fixtures.mjs";
 import { looksLikeAsar, readAsar } from "../src/formats/asar.js";
+import { parseAxml, readAndroidManifest } from "../src/formats/axml.js";
 import { parseElf, parseExecutable, parseMachO, parseMz } from "../src/formats/executables.js";
 import { classFileJavaVersion, parseManifest } from "../src/formats/java.js";
 import { parseDiskImage, parseSwf } from "../src/formats/media.js";
+import { RT, readPeResources } from "../src/formats/peres.js";
 import { readTar, writeTar } from "../src/formats/tar.js";
 import { readZipDirectory, readZipEntry, readZipEntryHead } from "../src/formats/zip.js";
 import { bufferSource, crc32 } from "../src/util/bytes.js";
@@ -203,5 +205,125 @@ describe("asar", () => {
 describe("crc32", () => {
   it("matches the reference value", () => {
     expect(crc32(strToU8("123456789"))).toBe(0xcbf43926);
+  });
+});
+
+describe("android binary XML", () => {
+  it("reads the package, version, SDK levels and launcher activity", () => {
+    expect(readAndroidManifest(fx.androidManifest({ pkg: "org.example.game", activity: ".Play" }))).toEqual({
+      package: "org.example.game",
+      versionName: "1.2.3",
+      versionCode: 7,
+      minSdk: 21,
+      targetSdk: 34,
+      launcher: "org.example.game.Play",
+    });
+  });
+
+  it("falls back to the resource map when attribute names are stripped", () => {
+    const info = readAndroidManifest(
+      fx.androidManifest({ pkg: "a.b", activity: "x.y.Main", stripNames: true }),
+    );
+    expect(info).toMatchObject({ package: "a.b", versionCode: 7, minSdk: 21, launcher: "x.y.Main" });
+  });
+
+  it("keeps the element tree and rejects other files", () => {
+    const root = parseAxml(
+      fx.axml({ name: "manifest", attrs: { package: "p.q" }, children: [{ name: "x" }] }),
+    );
+    expect(root).toEqual({
+      name: "manifest",
+      attrs: { package: "p.q" },
+      children: [{ name: "x", attrs: {}, children: [] }],
+    });
+    expect(() => parseAxml(new TextEncoder().encode("<manifest/>"))).toThrow(/binary XML/);
+  });
+});
+
+describe("PE resources", () => {
+  const exe = fx.peExe({
+    resources: [
+      { type: RT.STRING, id: 1, data: fx.rcStringTable({ 0: "Ready", 3: "Game over" }) },
+      { type: RT.STRING, id: 7, data: fx.rcStringTable({ 15: "High scores" }) },
+      {
+        type: RT.MENU,
+        id: 100,
+        data: fx.rcMenu([
+          {
+            text: "&Game",
+            items: [
+              { text: "&New\tF2", id: 510 },
+              { text: "E&xit", id: 512 },
+            ],
+          },
+          { text: "&Help", items: [{ text: "&About", id: 520 }] },
+        ]),
+      },
+      {
+        type: RT.DIALOG,
+        id: 200,
+        data: fx.rcDialog({
+          caption: "Custom Field",
+          cx: 140,
+          cy: 80,
+          controls: [
+            { cls: 0x82, text: "&Height:", id: -1, x: 8, y: 10, cx: 40, cy: 10 },
+            { cls: 0x81, text: "", id: 141, x: 50, y: 8, cx: 30, cy: 12 },
+            { cls: 0x80, text: "OK", id: 1, x: 90, y: 60, cx: 40, cy: 14 },
+          ],
+        }),
+      },
+      {
+        type: RT.VERSION,
+        id: 1,
+        data: fx.rcVersion({ FileDescription: "Mine sweeper", CompanyName: "Acme" }),
+      },
+    ],
+  });
+
+  it("reads string tables, menus, dialogs and version info", () => {
+    const res = readPeResources(exe);
+    expect(res.counts).toEqual({ string: 2, menu: 1, dialog: 1, version: 1 });
+    expect(res.strings).toEqual([
+      { id: 0, text: "Ready" },
+      { id: 3, text: "Game over" },
+      { id: 111, text: "High scores" },
+    ]);
+    expect(res.menus).toEqual([
+      {
+        id: 100,
+        items: [
+          {
+            text: "&Game",
+            items: [
+              { text: "&New\tF2", id: 510 },
+              { text: "E&xit", id: 512 },
+            ],
+          },
+          { text: "&Help", items: [{ text: "&About", id: 520 }] },
+        ],
+      },
+    ]);
+    const [dialog] = res.dialogs;
+    expect(dialog).toMatchObject({
+      id: 200,
+      caption: "Custom Field",
+      width: 140,
+      height: 80,
+      font: "MS Sans Serif 8pt",
+    });
+    expect(dialog!.controls.map((c) => [c.class, c.text, c.id])).toEqual([
+      ["Static", "&Height:", -1],
+      ["Edit", "", 141],
+      ["Button", "OK", 1],
+    ]);
+    expect(res.version).toEqual({ FileDescription: "Mine sweeper", CompanyName: "Acme" });
+    // The resource section does not confuse the header parser.
+    expect(parseExecutable(exe)).toMatchObject({ format: "pe", arch: "x86" });
+  });
+
+  it("returns nothing for files without resources", () => {
+    expect(readPeResources(fx.peExe())).toEqual({ counts: {}, strings: [], menus: [], dialogs: [] });
+    expect(readPeResources(fx.dosCom())).toEqual({ counts: {}, strings: [], menus: [], dialogs: [] });
   });
 });

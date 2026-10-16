@@ -3,6 +3,7 @@ import type { ScanReport } from "../scan/types.js";
 import { diskBackend } from "./disk.js";
 import { dosBackend } from "./dos.js";
 import { flashBackend } from "./flash.js";
+import { guestBackend } from "./guest.js";
 import { javaBackend } from "./java.js";
 import { linuxBackend } from "./linux.js";
 import { streamBackend } from "./stream.js";
@@ -20,6 +21,7 @@ export const BACKENDS: readonly Backend[] = [
   webBackend,
   electronBackend,
   streamBackend,
+  guestBackend,
 ];
 
 export function getBackend(id: string): Backend | undefined {
@@ -34,8 +36,6 @@ export interface Plan {
 }
 
 const UNSUPPORTED: Partial<Record<ScanReport["kind"], string>> = {
-  "android-app":
-    "Android apps (APK) need an Android runtime; none runs inside a browser yet. Stream it from a server with an Android emulator such as redroid instead.",
   "ios-app": "iOS apps (IPA) are encrypted and tied to Apple hardware; they cannot be converted.",
   "macos-program": "macOS programs cannot run outside macOS; there is no browser runtime for them.",
   "wasm-module":

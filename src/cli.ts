@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Command, InvalidArgumentError, Option } from "commander";
@@ -7,7 +7,11 @@ import { BACKENDS, getBackend, planFor } from "./backends/index.js";
 import { type BuildRequest, type BuildResult, buildApp } from "./build/build.js";
 import type { BackendId } from "./build/manifest.js";
 import { MANIFEST_FILE } from "./build/manifest.js";
+import { checkTarget, compareTargets } from "./check/check.js";
+import { recordScenario } from "./check/record.js";
+import { defaultScenario, parseScenario, type Scenario } from "./check/scenario.js";
 import { type PublishTarget, publishBundle } from "./publish/index.js";
+import { anthropicClient, DEFAULT_MODEL, type Effort, rebuildApp } from "./rebuild/agent.js";
 import { RuntimeCache } from "./runtimes/cache.js";
 import { CDN, VENDORED, type VendoredRuntimeId } from "./runtimes/registry.js";
 import { scanInput } from "./scan/scan.js";
@@ -17,7 +21,7 @@ import { packageVersion } from "./util/assets.js";
 import { formatBytes } from "./util/bytes.js";
 import { errorMessage, UserError } from "./util/errors.js";
 import { createLogger } from "./util/log.js";
-import { isValidSlug } from "./util/paths.js";
+import { isValidSlug, slugify } from "./util/paths.js";
 
 const log = createLogger({ level: process.env.WAA_DEBUG ? "debug" : "info" });
 // `waa scan x | head` closes the pipe early; that is not an error.
@@ -128,7 +132,16 @@ function buildCommand(cmd: Command): Command {
     .option("--resolution <WxH>", "Windows screen size, e.g. 1024x768")
     .option("--main-class <class>", "Java class to run instead of the manifest's Main-Class")
     .addOption(new Option("--java <version>", "Java version for CheerpJ").choices(["8", "11", "17"]))
-    .option("--memory <MB>", "RAM for the PC emulator", intArg("--memory", 8, 2048));
+    .option("--memory <MB>", "RAM for the PC emulator", intArg("--memory", 8, 2048))
+    .option(
+      "--guest <image>",
+      "boot this OS disk image (e.g. an installed Windows 98) with the program on D:",
+    )
+    .addOption(
+      new Option("--guest-engine <engine>", "emulator for --guest")
+        .choices(["v86", "dosboxX"])
+        .default("v86"),
+    );
 }
 
 interface BuildCliOptions {
@@ -150,6 +163,8 @@ interface BuildCliOptions {
   mainClass?: string;
   java?: "8" | "11" | "17";
   memory?: number;
+  guest?: string;
+  guestEngine: "v86" | "dosboxX";
   json?: boolean;
 }
 
@@ -172,6 +187,8 @@ function toBuildRequest(input: string, o: BuildCliOptions, outDir: string): Buil
     windows: { threads: o.threads === true, wine: o.wine, resolution: o.resolution },
     java: { mainClass: o.mainClass, version: o.java ? (Number(o.java) as 8 | 11 | 17) : undefined },
     disk: { memoryMB: o.memory },
+    guest: o.guest,
+    guestEngine: o.guestEngine,
   };
 }
 
@@ -363,6 +380,214 @@ program
       serverLog.info(`webapp-anything ${packageVersion()} listening on ${running.url}`);
       if (running.generatedToken)
         serverLog.info(`Publish token (saved in the data folder): ${running.token}`);
+    },
+  );
+
+async function loadScenario(file: string | undefined): Promise<Scenario> {
+  if (!file) return defaultScenario();
+  let raw: string;
+  try {
+    raw = await readFile(file, "utf8");
+  } catch {
+    throw new UserError(`Scenario file not found: ${file}`);
+  }
+  try {
+    return parseScenario(JSON.parse(raw));
+  } catch (err) {
+    if (err instanceof SyntaxError) throw new UserError(`${file} is not valid JSON: ${err.message}`);
+    throw err;
+  }
+}
+
+program
+  .command("check")
+  .description(
+    "Behaviour check: run a scenario against a bundle and compare its screens with saved baselines.",
+  )
+  .argument("<target>", "bundle folder or URL")
+  .option("-s, --scenario <file>", "scenario JSON (default: start, wait, snapshot the stage)")
+  .option("--baseline <dir>", "folder with baseline PNGs", "waa-baseline")
+  .option("--out <dir>", "folder for actual/diff images and report.html", "waa-check")
+  .option("--update", "accept the current screens as the new baselines")
+  .option("--gpu", "render with the GPU instead of SwiftShader")
+  .option("--json", "print results as JSON")
+  .action(
+    async (
+      target: string,
+      o: {
+        scenario?: string;
+        baseline: string;
+        out: string;
+        update?: boolean;
+        gpu?: boolean;
+        json?: boolean;
+      },
+    ) => {
+      const scenario = await loadScenario(o.scenario);
+      const report = await checkTarget(target, scenario, {
+        baselineDir: o.baseline,
+        outDir: o.out,
+        update: o.update,
+        gpu: o.gpu,
+        log,
+      });
+      if (o.json) out(JSON.stringify(report, null, 2));
+      else {
+        for (const r of report.results) {
+          const pct = r.mismatch === undefined ? "" : ` ${(r.mismatch * 100).toFixed(2)}% differs`;
+          out(`  ${r.status === "fail" ? yellow("✗") : "✓"} ${r.name.padEnd(20)} ${r.status}${pct}`);
+        }
+        out(`${bold(report.passed ? "Passed" : "Failed")}  report: ${report.reportFile}`);
+      }
+      if (!report.passed) process.exitCode = 1;
+    },
+  );
+
+program
+  .command("compare")
+  .description(
+    "Run one scenario against two targets (e.g. original vs rebuild) and score how alike they look.",
+  )
+  .argument("<a>", "first bundle folder or URL")
+  .argument("<b>", "second bundle folder or URL")
+  .option("-s, --scenario <file>", "scenario JSON (default: start, wait, snapshot the stage)")
+  .option("--out <dir>", "folder for screenshots and compare.html", "waa-compare")
+  .option("--min <ratio>", "fail when average similarity is below this (0–1)")
+  .option("--gpu", "render with the GPU instead of SwiftShader")
+  .action(
+    async (a: string, b: string, o: { scenario?: string; out: string; min?: string; gpu?: boolean }) => {
+      const scenario = await loadScenario(o.scenario);
+      const res = await compareTargets(a, b, scenario, { outDir: o.out, gpu: o.gpu, log });
+      for (const r of res.results) out(`  ${r.name.padEnd(20)} ${(r.similarity * 100).toFixed(1)}% similar`);
+      out(`${bold("Average")}  ${(res.average * 100).toFixed(1)}%  report: ${res.reportFile}`);
+      if (o.min !== undefined && res.average < Number(o.min)) process.exitCode = 1;
+    },
+  );
+
+program
+  .command("record")
+  .description("Open a bundle in Chrome and record what you do as a scenario (F2 marks a snapshot).")
+  .argument("<target>", "bundle folder or URL")
+  .requiredOption("-o, --out <file>", "where to write the scenario JSON")
+  .option("--width <px>", "viewport width", intArg("--width", 320, 4000), 800)
+  .option("--height <px>", "viewport height", intArg("--height", 240, 4000), 600)
+  .action(async (target: string, o: { out: string; width: number; height: number }) => {
+    const session = await recordScenario(target, { viewport: { width: o.width, height: o.height }, log });
+    out(
+      "Recording. Use the app in the Chrome window; press F2 to mark a snapshot. Close the window (or Ctrl+C) to finish.",
+    );
+    process.once("SIGINT", () => session.stop());
+    const scenario = await session.done;
+    await writeFile(o.out, `${JSON.stringify(scenario, null, 2)}\n`);
+    out(
+      `${bold("Saved")} ${scenario.steps.length} steps to ${o.out}. Check it with: waa check ${target} -s ${o.out} --update`,
+    );
+  });
+
+program
+  .command("rebuild")
+  .description(
+    "AI rebuild: a Claude agent studies the program (and screenshots of it running) and writes a native web version.",
+  )
+  .argument("<input>", "program file, folder or archive")
+  .option("-o, --out <dir>", "output folder (default: ./rebuild/<name>)")
+  .option("--model <id>", "Claude model", DEFAULT_MODEL)
+  .addOption(
+    new Option("--effort <level>", "how hard the model thinks")
+      .choices(["low", "medium", "high", "xhigh", "max"])
+      .default("high"),
+  )
+  .option("--max-turns <n>", "stop after this many model turns", intArg("--max-turns", 1, 500), 80)
+  .option("--reference <target>", 'the original as a bundle folder or URL to screenshot ("none" to skip)')
+  .option("--no-screenshots", "do not run the original or the rebuild in Chrome")
+  .option("--width <px>", "viewport width for screenshots", intArg("--width", 320, 4000), 800)
+  .option("--height <px>", "viewport height for screenshots", intArg("--height", 240, 4000), 600)
+  .option(
+    "--mcp <command>",
+    'stdio MCP server whose tools the agent may use, as "name=command args" (repeatable)',
+    collect,
+    [],
+  )
+  .option("--notes <text>", "extra instructions for the agent")
+  .option("--no-fallbacks", "never let the API answer with a fallback model")
+  .option("--force", "reuse a non-empty output folder")
+  .option("-y, --yes", "do not ask before calling the (billed) Claude API")
+  .action(
+    async (
+      input: string,
+      o: {
+        out?: string;
+        model: string;
+        effort: Effort;
+        maxTurns: number;
+        reference?: string;
+        screenshots: boolean;
+        width: number;
+        height: number;
+        mcp: string[];
+        notes?: string;
+        fallbacks: boolean;
+        force?: boolean;
+        yes?: boolean;
+      },
+    ) => {
+      const client = await anthropicClient();
+      const outDir =
+        o.out ?? path.join("rebuild", slugify(path.basename(input).replace(/\.[^.]+$/, "")) || "app");
+      out(
+        `${bold("waa rebuild")} sends ${path.basename(input)} (file listings, strings, resources${o.screenshots ? ", screenshots" : ""}) to the Claude API: ${o.model}, effort ${o.effort}, up to ${o.maxTurns} turns. Usage is billed to your Anthropic account.`,
+      );
+      if (o.fallbacks) {
+        out(
+          dim(
+            "Server-side fallbacks are on: if the model is overloaded the API may answer with another Claude model (--no-fallbacks to turn off).",
+          ),
+        );
+      }
+      if (!o.yes) {
+        if (!process.stdin.isTTY)
+          throw new UserError("Not confirmed.", "Run it in a terminal or pass --yes.");
+        const { createInterface } = await import("node:readline/promises");
+        const rl = createInterface({ input: process.stdin, output: process.stdout });
+        const answer = await rl.question("Continue? [y/N] ");
+        rl.close();
+        if (!/^y(es)?$/i.test(answer.trim())) throw new UserError("Cancelled.");
+      }
+      const result = await rebuildApp({
+        input,
+        outDir,
+        client,
+        runtimes: new RuntimeCache(undefined, log),
+        model: o.model,
+        effort: o.effort,
+        maxTurns: o.maxTurns,
+        reference: o.reference,
+        screenshots: o.screenshots,
+        viewport: { width: o.width, height: o.height },
+        mcp: o.mcp,
+        notes: o.notes,
+        fallbacks: o.fallbacks,
+        force: o.force,
+        log,
+      });
+      out("");
+      out(
+        `${bold(result.finished ? "Rebuilt" : "Stopped")} after ${result.turns} turns and ${result.toolCalls} tool calls (${result.stopReason}).`,
+      );
+      if (result.summary) out(result.summary);
+      const u = result.usage;
+      out(
+        dim(
+          `Tokens: ${u.inputTokens} in, ${u.outputTokens} out, ${u.cacheReadTokens} cache reads, ${u.cacheWriteTokens} cache writes. Models: ${result.models.join(", ")}`,
+        ),
+      );
+      if (result.bundleDir) {
+        const rel = path.relative(process.cwd(), result.bundleDir) || ".";
+        out(
+          `\n${dim("Next:")} waa preview ${rel}   ${dim("or compare:")} waa compare ${path.join(path.dirname(rel), "original")} ${rel}`,
+        );
+      }
+      if (!result.finished) process.exitCode = 1;
     },
   );
 

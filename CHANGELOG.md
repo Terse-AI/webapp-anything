@@ -1,7 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-10-16
 
+- `waa rebuild`: a Claude agent studies a program (files, strings, hex, Windows menus/dialogs/string tables,
+  screenshots of the original running in its emulator, optional MCP tools such as a reverse-engineering server)
+  and writes a native web reimplementation, comparing screenshots of its build with the original as it goes.
+- Behaviour checks: `waa record` turns what you do in Chrome into a scenario, `waa check` replays it and diffs
+  every snapshot against baselines, `waa compare` scores two builds against each other. HTML reports, CI-friendly.
+- Saves: DOS programs, Flash SharedObjects and whole PC machine states are saved in the browser, exported and
+  imported as `.waasave` files, and synced between devices with a sync code through `waa serve`
+  (`/api/saves/<app>`).
+- Guest OS backend: `--guest win98.img` boots your own Windows 9x or DOS hard-disk image in v86 or DOSBox-X
+  (`--guest-engine dosboxX`) with the program on a generated ISO 9660/Joliet CD-ROM.
+- Android: APKs build to a Docker project with a pinned Android 14 emulator and a noVNC web client; the scanner
+  reads the binary manifest (package, version, SDK levels, launcher activity, native ABIs).
 - Fixed: Linux apps never started (a syntax error in the generated boot script). Every backend's boot script is
   now compiled in the tests.
 - Fixed: Windows programs switched the page to real fullscreen on the first click.
