@@ -3,10 +3,10 @@ export { BACKENDS, getBackend, type Plan, planFor } from "./backends/index.js";
 export type { Assessment, Backend, BuildOptions } from "./backends/types.js";
 export { type BuildRequest, type BuildResult, buildApp, defaultTitle } from "./build/build.js";
 export { readBundleManifest } from "./build/bundle.js";
+export { type BackendId, type BundleManifest, bundleHeaders, MANIFEST_FILE } from "./build/manifest.js";
 export { type CheckReport, checkTarget, compareTargets } from "./check/check.js";
 export { recordScenario } from "./check/record.js";
 export { defaultScenario, parseScenario, type Scenario, type Step } from "./check/scenario.js";
-export { type BackendId, type BundleManifest, bundleHeaders, MANIFEST_FILE } from "./build/manifest.js";
 export {
   type PublishOptions,
   type PublishResult,
